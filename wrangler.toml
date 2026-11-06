@@ -1,5 +1,5 @@
 # Cloudflare Pages project settings (used by `wrangler pages dev` and by Cloudflare when deploying from GitHub)
-name = "able-leave-system"
+name = "able-container-line-leave-system"
 compatibility_date = "2025-01-01"
 pages_build_output_dir = "public"
 
