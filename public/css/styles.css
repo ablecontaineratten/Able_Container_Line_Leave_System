@@ -796,7 +796,7 @@ img.emp-avatar:hover { transform: scale(1.9); position: relative; z-index: 2; }.
 .auth3-glow i:nth-child(2) { background: #cf2830; opacity: .5; }
 .auth3-glow i:nth-child(3) { background: #5b6fd6; opacity: .35; }
 /* white logo straight on the background (no badge), with the light sweep across it */
-.auth3-logo { width: 175px; height: auto; aspect-ratio: 356 / 288; filter: drop-shadow(0 6px 18px rgba(5, 10, 40, .35)); }
+.auth3-logo { width: 215px; height: auto; aspect-ratio: 356 / 288; filter: drop-shadow(0 6px 18px rgba(5, 10, 40, .35)); }
 .auth3-logo img { width: 100%; height: 100%; object-fit: contain; opacity: .95; }
 .auth3-shine { -webkit-mask: url(/img/logo-white.png) center / contain no-repeat; mask: url(/img/logo-white.png) center / contain no-repeat;
   background: linear-gradient(105deg, transparent 38%, #fff 50%, rgba(255, 190, 195, .9) 53%, transparent 64%) no-repeat; background-size: 260% 100%; }
@@ -805,4 +805,4 @@ img.emp-avatar:hover { transform: scale(1.9); position: relative; z-index: 2; }.
 .auth3-btn, .auth3 .btn-block { color: #28398a; }
 .auth3-check input:checked + i::after { border-color: #28398a; }
 .auth3 input:-webkit-autofill { box-shadow: 0 0 0 40px rgba(40, 57, 138, .6) inset; }
-@media (max-width: 480px) { .auth3-logo { width: 145px; height: auto; } }
+@media (max-width: 480px) { .auth3-logo { width: 175px; height: auto; } }
