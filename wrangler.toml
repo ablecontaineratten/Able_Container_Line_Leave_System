@@ -7,7 +7,7 @@ pages_build_output_dir = "public"
 [[d1_databases]]
 binding = "DB"
 database_name = "able-leave-db"
-database_id = "PUT-YOUR-DATABASE-ID-HERE"
+database_id = "9610ae35-4fa5-48d3-9c22-f48b65f8ac48"
 migrations_dir = "migrations"
 
 # Secrets (RESEND_API_KEY, optional EMAIL_FROM) are NOT written here:

@@ -6,3 +6,4 @@ node_modules/
 Thumbs.db
 scripts/output/
 scripts/input/
+.cf-auth/
