@@ -4,7 +4,7 @@
   --navy: #1f2a7a;
   --navy-deep: #161d5c;
   --sky: #eaeefb;
-  --ring: rgba(46, 49, 146, .14);
+  --ring: rgba(40, 57, 138, .14);
   min-height: 100vh;
   margin: 0;
   background: linear-gradient(160deg, #f8faff 0%, #eaf0fc 50%, #dde5f7 100%);
@@ -16,7 +16,7 @@
 .rq-bg-logo {
   position: absolute; left: 50%; top: 50%;
   width: min(1150px, 150vw); aspect-ratio: 1;
-  background: url(/img/logo.svg) center / contain no-repeat;
+  background: url(/img/logo-full.png) center / contain no-repeat;
   mix-blend-mode: multiply;           /* the white of the logo disappears */
   opacity: .07;
   transform: translate(-50%, -50%);
@@ -58,7 +58,7 @@
 /* ---------- official header */
 .rq-hero {
   position: relative; overflow: hidden; color: #fff;
-  background: linear-gradient(118deg, var(--navy-deep) 0%, var(--brand) 55%, #4152c0 100%);
+  background: linear-gradient(118deg, var(--navy-deep) 0%, var(--brand) 55%, #3a50b4 100%);
   padding: 26px 30px 22px;
 }
 .rq-hero::before {             /* road swoosh in the header */
@@ -131,13 +131,13 @@
   position: relative; overflow: hidden; width: 100%; margin-top: 8px;
   border: 0; border-radius: 14px; padding: 15px 20px; cursor: pointer;
   font: inherit; font-size: 1.02rem; font-weight: 700; color: #fff; letter-spacing: .02em;
-  background: linear-gradient(118deg, var(--navy-deep), var(--brand) 60%, #4558cc);
-  box-shadow: 0 14px 28px -12px rgba(46, 49, 146, .7);
+  background: linear-gradient(118deg, var(--navy-deep), var(--brand) 60%, #3a50b4);
+  box-shadow: 0 14px 28px -12px rgba(40, 57, 138, .7);
   display: flex; align-items: center; justify-content: center; gap: 10px;
   transition: transform .15s, box-shadow .2s, filter .2s;
 }
 .rq-submit::after { content: ''; position: absolute; top: 0; left: -70%; width: 45%; height: 100%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .28), transparent); transition: left .7s; }
-.rq-submit:hover { transform: translateY(-1px); box-shadow: 0 18px 32px -12px rgba(46, 49, 146, .8); }
+.rq-submit:hover { transform: translateY(-1px); box-shadow: 0 18px 32px -12px rgba(40, 57, 138, .8); }
 .rq-submit:hover::after { left: 130%; }
 .rq-submit:active { transform: translateY(1px); }
 .rq-submit:disabled { filter: saturate(.6) brightness(1.05); cursor: wait; transform: none; }
@@ -187,7 +187,7 @@
 /* ---------- portal: top bar (logo / back, name, settings) */
 .rq-top {
   position: relative; display: flex; align-items: center; gap: 14px; padding: 16px 20px; color: #fff; overflow: hidden;
-  background: linear-gradient(118deg, var(--navy-deep) 0%, var(--brand) 60%, #4152c0 100%);
+  background: linear-gradient(118deg, var(--navy-deep) 0%, var(--brand) 60%, #3a50b4 100%);
 }
 .rq-top::after { content: ''; position: absolute; top: 0; left: -60%; width: 40%; height: 100%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .14), transparent); animation: rq-sweep 6s ease-in-out 1s infinite; pointer-events: none; }
 .rq-top-logo { width: 46px; height: 46px; flex: none; border-radius: 12px; background: #fff; overflow: hidden; display: grid; place-items: center; box-shadow: 0 0 0 3px rgba(255, 255, 255, .18); }
@@ -236,7 +236,7 @@
 .rq-tile:hover::after { transform: translateX(4px); opacity: .9; }
 .rq-tile:hover { transform: translateY(-2px); border-color: var(--brand); box-shadow: 0 24px 40px -18px rgba(22, 29, 92, .5); }
 .rq-tile:active { transform: scale(.98); }
-.rq-tile.primary { color: #fff; border-color: transparent; background: linear-gradient(140deg, var(--navy-deep), var(--brand) 60%, #4558cc); }
+.rq-tile.primary { color: #fff; border-color: transparent; background: linear-gradient(140deg, var(--navy-deep), var(--brand) 60%, #3a50b4); }
 .rq-tile-icon { width: 56px; height: 56px; flex: none; border-radius: 16px; display: grid; place-items: center; background: var(--sky); color: var(--brand); }
 .rq-tile.primary .rq-tile-icon { background: rgba(255, 255, 255, .16); color: #fff; }
 .rq-tile-icon svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -283,7 +283,7 @@
 .rq-choice:hover { transform: translateY(-4px); border-color: var(--brand); box-shadow: 0 24px 40px -18px rgba(22, 29, 92, .45); }
 .rq-choice:hover::after { transform: scale(1.35); }
 .rq-choice > * { position: relative; z-index: 1; }
-.rq-choice.primary { color: #fff; border-color: transparent; background: linear-gradient(140deg, var(--navy-deep), var(--brand) 60%, #4558cc); }
+.rq-choice.primary { color: #fff; border-color: transparent; background: linear-gradient(140deg, var(--navy-deep), var(--brand) 60%, #3a50b4); }
 .rq-choice.primary::after { background: rgba(255, 255, 255, .1); }
 .rq-choice-icon { font-size: 2rem; width: 56px; height: 56px; display: grid; place-items: center; border-radius: 16px; background: var(--sky); margin-bottom: 8px; }
 .rq-choice.primary .rq-choice-icon { background: rgba(255, 255, 255, .16); }
@@ -389,7 +389,7 @@
 .app-avatar {
   width: 54px; height: 54px; flex: none; border-radius: 50%; display: grid; place-items: center;
   font-weight: 800; color: #fff; font-size: 1.05rem; letter-spacing: .02em;
-  background: linear-gradient(140deg, var(--navy-deep), var(--brand) 60%, #4558cc);
+  background: linear-gradient(140deg, var(--navy-deep), var(--brand) 60%, #3a50b4);
   box-shadow: 0 0 0 4px #fff, 0 6px 16px -6px rgba(22, 29, 92, .5);
 }
 .app-avatar.big { width: 84px; height: 84px; font-size: 1.6rem; }
@@ -401,7 +401,7 @@
 .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 5px; background: #fff; border-radius: 14px; box-shadow: 0 4px 14px -8px rgba(22, 29, 92, .25); margin-bottom: 16px; animation: rq-up .45s ease .15s both; }
 .seg button { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 6px; border: 0; border-radius: 10px; background: none; color: #69728f; font: inherit; font-weight: 600; font-size: .88rem; cursor: pointer; transition: background .2s, color .2s; }
 .seg button svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.seg button.on { background: linear-gradient(135deg, var(--brand), #4558cc); color: #fff; box-shadow: 0 6px 14px -6px rgba(46, 49, 146, .7); }
+.seg button.on { background: linear-gradient(135deg, var(--brand), #3a50b4); color: #fff; box-shadow: 0 6px 14px -6px rgba(40, 57, 138, .7); }
 .seg em { font-style: normal; font-size: .68rem; font-weight: 800; background: #ffb020; color: #fff; border-radius: 999px; padding: 1px 6px; }
 .seg button.on em { background: #fff; color: var(--brand); }
 
@@ -441,8 +441,8 @@
 .fab {
   position: fixed; z-index: 30; bottom: calc(84px + env(safe-area-inset-bottom)); right: max(18px, calc(50% - 260px + 18px));
   display: flex; align-items: center; gap: 8px; padding: 14px 22px 14px 18px; border: 0; border-radius: 16px; cursor: pointer;
-  font: inherit; font-weight: 700; color: #fff; background: linear-gradient(135deg, var(--brand), #4558cc);
-  box-shadow: 0 14px 28px -10px rgba(46, 49, 146, .75); transition: transform .15s, box-shadow .2s; animation: rq-pop .5s cubic-bezier(.3, 1.5, .5, 1) .3s both;
+  font: inherit; font-weight: 700; color: #fff; background: linear-gradient(135deg, var(--brand), #3a50b4);
+  box-shadow: 0 14px 28px -10px rgba(40, 57, 138, .75); transition: transform .15s, box-shadow .2s; animation: rq-pop .5s cubic-bezier(.3, 1.5, .5, 1) .3s both;
 }
 .fab svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; }
 .fab:hover { transform: translateY(-2px); }
@@ -473,7 +473,7 @@
 /* buttons, boxes */
 .btn-wide { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 12px; padding: 14px; border-radius: 14px; cursor: pointer; font: inherit; font-weight: 700; border: 1.5px solid #dfe4f0; background: #fff; color: var(--navy); transition: filter .2s, background .2s; }
 .btn-wide svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.btn-wide.primary { border: 0; color: #fff; background: linear-gradient(135deg, var(--brand), #4558cc); box-shadow: 0 12px 24px -12px rgba(46, 49, 146, .7); }
+.btn-wide.primary { border: 0; color: #fff; background: linear-gradient(135deg, var(--brand), #3a50b4); box-shadow: 0 12px 24px -12px rgba(40, 57, 138, .7); }
 .btn-wide.danger { color: #e03131; border-color: #f5c7c7; }
 .btn-wide.danger:hover { background: #fdecec; }
 .btn-wide:disabled { filter: saturate(.6); cursor: wait; }
@@ -576,3 +576,24 @@
 .photo-hint { color: var(--muted); font-size: .78rem; margin-top: 6px; }
 .photo-remove { background: none; border: 0; color: #dc2626; font: inherit; font-size: .8rem; font-weight: 600; margin-top: 6px; cursor: pointer; }.photo-pick:active .app-avatar.big { transform: scale(.96); }
 .photo-remove { display: block; margin: 2px auto 0; }
+
+/* ======================================================================
+   Able Container Line theme: logo blue (#28398A) + logo red (#CF2830)
+   ====================================================================== */
+.rq { --brand: #28398a; --navy: #1f2c6e; --navy-deep: #16204f; --sky: #eaedf8; --ring: rgba(40, 57, 138, .14); --accent: #cf2830; }
+.rq-glow-1 { background: #a9b5ec; }
+.rq-glow-2 { background: #f4c0c4; }
+/* blue headers with a red line underneath (like the logo: blue ship, red name) */
+.rq-hero, .rq-top { box-shadow: inset 0 -4px 0 var(--accent); }
+.rq-login-company { color: var(--brand); }
+.rq-login-company::after { content: ''; display: block; width: 46px; height: 3px; margin: 8px auto 0; border-radius: 3px; background: var(--accent); }
+.rq-step.done .rq-num { background: var(--brand); }
+.rq-step:focus-within .rq-num { background: var(--accent); box-shadow: 0 0 0 6px rgba(207, 40, 48, .14); }
+.rq-tile:hover, .rq-choice:hover { border-color: var(--accent); }
+.rq-tile.primary, .rq-choice.primary { box-shadow: 0 14px 30px -16px rgba(22, 32, 79, .6), inset 0 -3px 0 var(--accent); }
+.seg em, .app-bell em { background: var(--accent); }
+.note-items li.unread, .note-items li.picked { box-shadow: inset 3px 0 0 var(--accent); }
+.tabbar { box-shadow: inset 0 2px 0 rgba(207, 40, 48, .12); }
+/* full logo fits inside the round logo boxes (no cropping of the name) */
+.rq-login-logo img { transform: none; padding: 8px; }
+.rq-logo img, .rq-top-logo img { width: 100%; height: 100%; object-fit: contain; padding: 4px; }

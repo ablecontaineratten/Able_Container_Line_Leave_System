@@ -104,9 +104,9 @@ export function nowText(settings) {
 }
 
 export function layout(settings, inner) {
-  const color = esc(settings.brand_color || '#0B3B8C');
+  const color = esc(settings.brand_color || '#28398A');
   return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#1a2333;max-width:660px;margin:0 auto">
-    <div style="background:${color};color:#fff;padding:14px 20px;border-radius:8px 8px 0 0;font-weight:bold">${esc(settings.company_name)} &middot; Leave System</div>
+    <div style="background:${color};color:#fff;padding:14px 20px;border-radius:8px 8px 0 0;border-bottom:4px solid #CF2830;font-weight:bold">${esc(settings.company_name)} &middot; Leave System</div>
     <div style="border:1px solid #dce1ea;border-top:0;padding:20px;border-radius:0 0 8px 8px;background:#fff">${inner}</div>
   </div>`;
 }
@@ -176,12 +176,12 @@ export function letter(settings, types, rows, sum, warnings) {
 
 // Full HTML page (used by the Approve / Reject email links)
 export function page(settings, title, body) {
-  const color = esc(settings.brand_color || '#0B3B8C');
+  const color = esc(settings.brand_color || '#28398A');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${esc(title)}</title>
   <style>
     *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:#f3f5f9;color:#1a2333;line-height:1.5}
-    .top{background:${color};color:#fff;padding:24px 16px 64px}.in{max-width:620px;margin:0 auto;font-weight:700}
+    .top{background:${color};color:#fff;padding:24px 16px 64px;border-bottom:5px solid #CF2830}.in{max-width:620px;margin:0 auto;font-weight:700}
     .card{max-width:620px;margin:-44px auto 32px;background:#fff;border:1px solid #dce1ea;border-radius:14px;padding:24px}
     h1{font-size:22px;margin:0 0 12px}textarea{width:100%;min-height:80px;border:1px solid #cfd6e2;border-radius:8px;padding:10px;font:inherit}
     .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}button{border:0;border-radius:8px;padding:12px 26px;font:inherit;font-weight:700;color:#fff;cursor:pointer}

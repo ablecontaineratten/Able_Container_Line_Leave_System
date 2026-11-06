@@ -100,7 +100,7 @@ function showLogin(notice = '') {
   root.innerHTML = `<div class="rq-login">
       <img class="trial-stamp rq-login-trial" src="/img/trial-stamp.svg" alt="Trial version">
       <div class="rq-login-brand">
-        <div class="rq-login-logo"><img src="/img/logo.svg" alt="${esc(state.company_name)} logo"></div>
+        <div class="rq-login-logo"><img src="/img/logo-full.png" alt="${esc(state.company_name)} logo"></div>
         <div class="rq-login-company">${esc(state.company_name)}</div>
         <div class="rq-login-portal">Employee Leave Portal</div>
       </div>

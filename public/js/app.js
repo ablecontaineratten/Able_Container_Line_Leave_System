@@ -141,7 +141,7 @@ function renderShell() {
   root.innerHTML = `
     <div class="shell">
       <aside class="sidebar" id="sidebar">
-        <div class="brand"><img src="${esc(b.logo_url || '/img/icon-192.png')}" alt="">
+        <div class="brand"><img src="${esc(b.logo_url || '/img/logo-ship.png')}" alt="">
           <div><strong>Leave System</strong><small>${esc(b.company_name || '')}</small></div></div>
         <nav class="nav">${nav}</nav>
       </aside>

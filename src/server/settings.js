@@ -14,7 +14,7 @@ export const SETTING_DEFAULTS = {
   copy_emails: '',            // copy of every Approved / Cancelled email
   app_url: '',                // used in email links; empty = the address the app is opened from
   email_from: '',             // sender; the EMAIL_FROM variable wins when set
-  brand_color: '#0B3B8C',
+  brand_color: '#28398A',
   logo_url: '',
   form_url: '',               // the Google Form employees use (shown in "request not sent" emails)
 };
