@@ -779,14 +779,15 @@ img.emp-avatar:hover { transform: scale(1.9); position: relative; z-index: 2; }.
    ====================================================================== */
 :root { --brand: #28398a; --accent: #cf2830; --accent-bg: #fdecee; }
 /* thin blue → red line across the top of the sidebar and under the top bar */
-.sidebar { background-image: linear-gradient(90deg, var(--brand), var(--accent)); background-size: 100% 4px; background-repeat: no-repeat; }
+/* sidebar: dark logo-blue, with the blue → red line on top (two background layers) */
+.sidebar { background: linear-gradient(90deg, #3a50b4, var(--accent)) top / 100% 4px no-repeat, linear-gradient(185deg, #141c4d 0%, #1d2a6b 55%, #28398a 100%); }
 .topbar { border-bottom: 2px solid transparent; border-image: linear-gradient(90deg, var(--brand) 0%, var(--brand) 55%, var(--accent) 100%) 1; }
 .brand img { background: #fff; }
-.brand strong { color: var(--brand); }
-.brand small { color: var(--accent); font-weight: 600; }
-/* active menu item: blue text, red marker on the left */
-.nav a.active { box-shadow: inset 3px 0 0 var(--accent); }
-.nav-group { color: color-mix(in srgb, var(--accent) 70%, var(--muted)); }
+.brand strong { color: #fff; }
+.brand small { color: #ff9ca2; font-weight: 600; }
+/* active menu item: white, blue text, red marker on the left */
+.nav a.active { box-shadow: inset 3px 0 0 var(--accent), 0 8px 18px -10px rgba(0, 0, 0, .5); }
+.nav-group { color: rgba(255, 156, 162, .8); }
 .btn-danger-outline { border-color: color-mix(in srgb, var(--accent) 35%, #fff); }
 
 /* sign-in / first-time setup: deep blue with a red glow, full-colour logo on a white badge */
