@@ -1,0 +1,5 @@
+# Copy this file to ".dev.vars" for local development. Never commit .dev.vars.
+# Resend API key (https://resend.com → API Keys). Leave empty to print emails in the terminal instead of sending.
+RESEND_API_KEY=
+# Sender, e.g.  Leave System <leave@yourcompany.com>   (the domain must be verified in Resend)
+EMAIL_FROM=

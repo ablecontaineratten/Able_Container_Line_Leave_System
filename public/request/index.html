@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#1f2a7a">
+  <title>Leave Request</title>
+  <link rel="icon" href="/img/icon-192.png" type="image/png">
+  <link rel="manifest" href="/request/manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Leave Request">
+  <link rel="apple-touch-icon" sizes="180x180" href="/img/icon-180.png">
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/css/request.css">
+  <script type="module" src="/js/request.js"></script>
+</head>
+<body class="rq">
+  <!-- animated background: logo watermark, road lines (like the logo), soft glows -->
+  <div class="rq-bg" aria-hidden="true">
+    <div class="rq-glow rq-glow-1"></div>
+    <div class="rq-glow rq-glow-2"></div>
+    <div class="rq-bg-logo"></div>
+    <svg class="rq-roads" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
+      <path class="road" d="M-40 640 C 300 640, 520 640, 760 600 S 1160 420, 1500 380" />
+      <path class="road" d="M-40 700 C 320 700, 560 700, 820 650 S 1200 470, 1500 440" />
+      <path class="road thin" d="M-40 760 C 340 760, 600 760, 880 700 S 1240 520, 1500 500" />
+      <path class="lane" d="M-40 670 C 310 670, 540 670, 790 625 S 1180 445, 1500 410" />
+      <path class="road" d="M1500 150 C 1200 150, 980 150, 760 190 S 380 330, -40 360" />
+      <path class="lane" d="M1500 180 C 1210 180, 990 180, 780 218 S 400 355, -40 388" />
+    </svg>
+  </div>
+
+  <div class="rq-wrap">
+    <main class="rq-card" id="root">
+      <div class="rq-loading"><span class="spinner"></span> Loading the leave form…</div>
+    </main>
+  </div>
+  <noscript>Please turn on JavaScript to use the leave form.</noscript>
+</body>
+</html>

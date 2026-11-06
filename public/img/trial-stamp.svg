@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <!-- light ink texture so it reads as a rubber stamp, but stays solid -->
+    <filter id="ink"><feTurbulence type="fractalNoise" baseFrequency="1.2" numOctaves="2" seed="7"/><feColorMatrix values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -.9 1.45"/><feComposite in="SourceGraphic" operator="in"/></filter>
+  </defs>
+  <circle cx="100" cy="100" r="95" fill="#fff"/>
+  <g filter="url(#ink)" fill="#cf1f2e" stroke="#cf1f2e">
+    <circle cx="100" cy="100" r="92" fill="none" stroke-width="8"/>
+    <circle cx="100" cy="100" r="78" fill="none" stroke-width="3"/>
+    <g transform="rotate(-16 100 100)" stroke="none" font-family="Impact, 'Arial Black', 'Helvetica Neue', Arial, sans-serif" font-weight="900" text-anchor="middle">
+      <text x="100" y="86" font-size="46" letter-spacing="2">TRIAL</text>
+      <rect x="4" y="96" width="192" height="50" rx="4"/>
+      <text x="100" y="135" font-size="36" letter-spacing="1" fill="#fff">VERSION</text>
+    </g>
+  </g>
+</svg>

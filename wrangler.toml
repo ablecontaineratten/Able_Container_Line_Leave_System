@@ -1,0 +1,15 @@
+# Cloudflare Pages project settings (used by `wrangler pages dev` and by Cloudflare when deploying from GitHub)
+name = "able-leave-system"
+compatibility_date = "2025-01-01"
+pages_build_output_dir = "public"
+
+# D1 database. Replace database_id with the id printed by:  npx wrangler d1 create able-leave-db
+[[d1_databases]]
+binding = "DB"
+database_name = "able-leave-db"
+database_id = "PUT-YOUR-DATABASE-ID-HERE"
+migrations_dir = "migrations"
+
+# Secrets (RESEND_API_KEY, optional EMAIL_FROM) are NOT written here:
+#   on your laptop  -> file .dev.vars  (copy .dev.vars.example)
+#   on Cloudflare   -> Pages project → Settings → Variables and Secrets (type: Secret)
