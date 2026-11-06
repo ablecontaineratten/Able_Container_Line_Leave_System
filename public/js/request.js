@@ -24,6 +24,18 @@ const ICON = {
   out: svg('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>'),
   list: svg('<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>'),
   bell: svg('<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/>'),
+  pin: svg('<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>'),
+};
+// Work From Home / Onsite requests (a way of working, not leave)
+const WORK = {
+  'Work From Home': { key: 'wfh', icon: ICON.home, short: 'Work From Home', help: 'Work from home on some days (not leave)' },
+  Onsite: { key: 'onsite', icon: ICON.pin, short: 'Onsite', help: 'Work at a site / client location (not leave)' },
+};
+// "06 Nov 2026", "06 Nov 2026 → 09 Nov 2026" (days in a row) or "06 Nov 2026, 10 Nov 2026" (separate dates)
+const workWhen = (w) => {
+  const list = String(w.dates || '').split(',').filter(Boolean);
+  if (w.mode === 'range' && w.from_date !== w.to_date) return `${fmtDate(w.from_date)} → ${fmtDate(w.to_date)}`;
+  return list.length > 1 ? list.map(fmtDate).join(', ') : fmtDate(w.from_date);
 };
 const STATUS_ICON = { Pending: ICON.clock, Approved: ICON.check, Rejected: ICON.cross, Cancelled: ICON.ban };
 
@@ -74,7 +86,7 @@ function setMode(mode) {
 function shell(content, { nav = '', fab = false } = {}) {
   setMode('app');
   root.innerHTML = `<div class="app">${content}</div>
-    ${fab ? `<button class="fab" id="fab" type="button">${ICON.plus}<span>Apply Leave</span></button>` : ''}
+    ${fab ? `<button class="fab" id="fab" type="button">${ICON.plus}<span>New Request</span></button>` : ''}
     ${nav ? `<nav class="tabbar">
       <button type="button" data-nav="home" class="${nav === 'home' ? 'on' : ''}">${ICON.home}<span>Home</span></button>
       <button type="button" data-nav="balance" class="${nav === 'balance' ? 'on' : ''}">${ICON.balance}<span>Balance</span></button>
@@ -82,7 +94,7 @@ function shell(content, { nav = '', fab = false } = {}) {
     </nav>` : ''}`;
   $$('[data-nav]').forEach((b) => b.addEventListener('click', () => ({ home: showHome, balance: showBalance, profile: showProfile })[b.dataset.nav]()));
   const fabBtn = $('#fab');
-  if (fabBtn) fabBtn.addEventListener('click', showApply);
+  if (fabBtn) fabBtn.addEventListener('click', openNewRequest);
   window.scrollTo(0, 0);
 }
 
@@ -153,7 +165,36 @@ async function showHome() {
   bellCount();
   let d;
   try { d = await loadData(); } catch (err) { if (err.message !== 'SIGNED_OUT') $('#home-body').innerHTML = `<p class="form-error">${esc(err.message)}</p>`; return; }
-  drawList(d.requests);
+  // leave + Work From Home / Onsite together, newest date first
+  const items = [...d.requests.map((r) => ({ ...r, kind: 'leave' })), ...(d.work || []).map((w) => ({ ...w, kind: 'work' }))]
+    .sort((a, b) => (a.from_date === b.from_date ? String(b.submitted_at).localeCompare(String(a.submitted_at)) : a.from_date < b.from_date ? 1 : -1));
+  drawList(items);
+}
+
+// "New Request": Leave, or Work From Home / Onsite
+function openNewRequest() {
+  const wrap = document.createElement('div');
+  wrap.className = 'sheet-back';
+  wrap.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-label="New request">
+      <div class="sheet-grip"></div>
+      <h2 class="new-title">New request</h2>
+      <div class="new-choices">
+        <button type="button" class="new-choice leave" data-new="leave"><span class="nc-icon">${ICON.cal}</span>
+          <span><b>Leave</b><small>Annual, casual, half day or short leave</small></span></button>
+        ${Object.entries(WORK).map(([type, w]) => `<button type="button" class="new-choice ${w.key}" data-new="${esc(type)}"><span class="nc-icon">${w.icon}</span>
+          <span><b>${esc(w.short)}</b><small>${esc(w.help)}</small></span></button>`).join('')}
+      </div>
+      <button class="btn-wide" id="close-new" type="button">Cancel</button>
+    </div>`;
+  document.body.appendChild(wrap);
+  requestAnimationFrame(() => wrap.classList.add('open'));
+  const close = () => { wrap.classList.remove('open'); setTimeout(() => wrap.remove(), 250); };
+  wrap.addEventListener('click', (ev) => { if (ev.target === wrap) close(); });
+  $('#close-new', wrap).addEventListener('click', close);
+  $$('[data-new]', wrap).forEach((b) => b.addEventListener('click', () => {
+    wrap.remove();
+    if (b.dataset.new === 'leave') showApply(); else showWork(b.dataset.new);
+  }));
 }
 
 // ---------------------------------------------------------------- notifications bell
@@ -267,13 +308,19 @@ function drawList(requests) {
   const rows = state.filter === 'all' ? requests : requests.filter((r) => r.status === state.filter);
   body.innerHTML = `<div class="seg">${tabs.map(([k, label, icon]) => `<button type="button" data-filter="${k}" class="${state.filter === k ? 'on' : ''}">
       ${icon}<span>${label}</span>${k === 'Pending' && pending ? `<em>${pending}</em>` : ''}</button>`).join('')}</div>
-    <div class="leave-list">${rows.length ? rows.map((r, i) => `
+    <div class="leave-list">${rows.length ? rows.map((r, i) => (r.kind === 'work' ? `
+      <button class="leave-card work-card ${WORK[r.work_type].key}" type="button" data-i="${requests.indexOf(r)}" style="--i:${Math.min(i, 8)}">
+        <span class="lc-icon wk-${WORK[r.work_type].key}">${WORK[r.work_type].icon}</span>
+        <span class="lc-main"><b>${esc(r.work_type)}${r.location ? ` <small>· ${esc(r.location)}</small>` : ''}</b><span class="lc-date">${ICON.cal}${esc(workWhen(r))}</span></span>
+        ${pill(r.status)}
+        ${r.reason ? `<span class="lc-note">${ICON.note}<span>${esc(r.reason)}</span></span>` : ''}
+      </button>` : `
       <button class="leave-card" type="button" data-i="${requests.indexOf(r)}" style="--i:${Math.min(i, 8)}">
         <span class="lc-icon s-${r.status.toLowerCase()}">${STATUS_ICON[r.status] || ICON.clock}</span>
         <span class="lc-main"><b>${esc(r.leave_type)}</b><span class="lc-date">${ICON.cal}${esc(whenText(r))}</span></span>
         ${pill(r.status)}
         ${r.reason ? `<span class="lc-note">${ICON.note}<span>${esc(r.reason)}</span></span>` : ''}
-      </button>`).join('') : `<div class="app-empty">${ICON.cal}<b>No leave requests</b></div>`}
+      </button>`)).join('') : `<div class="app-empty">${ICON.cal}<b>No requests</b></div>`}
     </div>`;
   $$('[data-filter]', body).forEach((b) => b.addEventListener('click', () => { state.filter = b.dataset.filter; drawList(requests); }));
   $$('.leave-card', body).forEach((c) => c.addEventListener('click', () => openSheet(requests[Number(c.dataset.i)])));
@@ -282,13 +329,16 @@ function drawList(requests) {
 // Bottom sheet with the details of one request (+ Withdraw when pending)
 function openSheet(r) {
   const row = (k, v) => (v ? `<div class="sheet-row"><span>${esc(k)}</span><b>${esc(v)}</b></div>` : '');
+  const work = r.kind === 'work';
   const wrap = document.createElement('div');
   wrap.className = 'sheet-back';
   wrap.innerHTML = `<div class="sheet" role="dialog" aria-modal="true">
       <div class="sheet-grip"></div>
-      <div class="sheet-head"><span class="lc-icon s-${r.status.toLowerCase()}">${STATUS_ICON[r.status] || ICON.clock}</span>
-        <div><b>${esc(r.leave_type)}</b><small>${esc(r.request_no)}</small></div>${pill(r.status)}</div>
-      ${row('Date(s)', whenText(r))}${row('Days', daysText(r))}${row('Reason', r.reason)}
+      <div class="sheet-head">${work ? `<span class="lc-icon wk-${WORK[r.work_type].key}">${WORK[r.work_type].icon}</span>`
+        : `<span class="lc-icon s-${r.status.toLowerCase()}">${STATUS_ICON[r.status] || ICON.clock}</span>`}
+        <div><b>${esc(work ? r.work_type : r.leave_type)}</b><small>${esc(r.request_no)}</small></div>${pill(r.status)}</div>
+      ${work ? `${row('Location', r.location)}${row('Date(s)', workWhen(r))}${row('Days', `${r.days} day${r.days === 1 ? '' : 's'}`)}${row('Type', 'Not leave - no balance used')}`
+        : `${row('Date(s)', whenText(r))}${row('Days', daysText(r))}`}${row('Reason', r.reason)}
       ${row('Requested', fmtDateTime(r.submitted_at, state.timezone))}
       ${row('Decided by', r.decided_by)}${row('Decided', r.decided_at ? fmtDateTime(r.decided_at, state.timezone) : '')}${row('Remark', r.remark)}
       <p class="form-error" hidden></p>
@@ -303,7 +353,7 @@ function openSheet(r) {
   const w = $('#withdraw', wrap);
   if (w) w.addEventListener('click', async () => {
     w.disabled = true;
-    try { await api('/portal/withdraw', { id: r.id }); close(); showHome(); } catch (err) {
+    try { await api(work ? '/portal/work/withdraw' : '/portal/withdraw', { id: r.id }); close(); showHome(); } catch (err) {
       if (err.message !== 'SIGNED_OUT') { errorBox($('.form-error', wrap), err.message); w.disabled = false; }
     }
   });
@@ -550,6 +600,103 @@ async function showApply() {
     try {
       const res = await api('/portal/request', body);
       showDone(res);
+    } catch (err) {
+      if (err.message === 'SIGNED_OUT') return;
+      errorBox(errBox, err.message);
+      errBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      busy(btn, false, 'Submit');
+    }
+  });
+  update();
+}
+
+// ---------------------------------------------------------------- Work From Home / Onsite request (not leave)
+async function showWork(type = 'Work From Home') {
+  shell(`${topBar('Work From Home / Onsite')}<div id="apply-body"><div class="app-loading"><span class="spinner"></span></div></div>`);
+  $('#back').addEventListener('click', showHome);
+  let o;
+  try { o = await api('/portal/options'); } catch (err) { if (err.message !== 'SIGNED_OUT') $('#apply-body').innerHTML = `<p class="form-error">${esc(err.message)}</p>`; return; }
+  const weekend = new Set(String(o.weekend || '').split(',').filter((x) => x !== '').map(Number));
+  const holidays = new Set(o.holidays);
+  const isWorking = (d) => !weekend.has(toUtc(d).getUTCDay()) && !holidays.has(d);
+  const countWorking = (from, to) => { let n = 0; for (let d = from, g = 0; d <= to && g < 400; d = addDays(d, 1), g++) if (isWorking(d)) n++; return n; };
+  const dateInput = (name) => `<input type="date" name="${name}" min="${o.today}" aria-label="Date">`;
+
+  $('#apply-body').innerHTML = `<form class="app-box form apply" id="work-form" novalidate>
+      <p class="work-note">This is <b>not leave</b>. No leave balance is used. Your department head approves it.</p>
+      ${step(1, 'Work type', `
+        <div class="work-types">${Object.entries(WORK).map(([t, w]) => `<label class="work-type ${w.key}">
+          <input type="radio" name="work_type" value="${esc(t)}" ${t === type ? 'checked' : ''}><span class="nc-icon">${w.icon}</span><b>${esc(w.short)}</b></label>`).join('')}</div>
+        <label class="field" id="loc-box"><span>Location <small>(optional)</small></span><input name="location" maxlength="120" placeholder="e.g. Colombo Port, client office"></label>`)}
+      ${step(2, 'Date(s)', `
+        <fieldset class="field"><span>How many days?</span>
+          <div class="segmented">
+            <label><input type="radio" name="mode" value="one" checked><span>One day</span></label>
+            <label><input type="radio" name="mode" value="range"><span>Days in a row</span></label>
+            <label><input type="radio" name="mode" value="dates"><span>Separate dates</span></label>
+          </div></fieldset>
+        <div id="one-box" class="form-grid"><label class="field"><span>Date *</span>${dateInput('date')}</label></div>
+        <div id="range-box" class="form-grid" hidden>
+          <label class="field"><span>From *</span>${dateInput('from')}</label>
+          <label class="field"><span>To *</span>${dateInput('to')}</label>
+        </div>
+        <div id="dates-box" hidden>
+          <div class="field"><span>Dates * (up to 10)</span><div id="date-list" class="date-list">${dateInput('d')}${dateInput('d')}</div></div>
+          <button type="button" class="btn btn-small" id="add-date" style="margin-top:8px">+ Add a date</button>
+        </div>
+        <p class="summary" id="summary"></p>`)}
+      ${step(3, 'Reason', `<label class="field"><span>Reason <small>(optional)</small></span><textarea name="reason" rows="3" maxlength="1000"></textarea></label>`)}
+      <p class="form-error" hidden></p>
+      <button class="btn-wide primary" type="submit"><span>Submit</span></button>
+    </form>`;
+
+  const form = $('#work-form');
+  const errBox = $('.form-error', form);
+  const mark = (n, on) => { const s = $(`[data-step="${n}"]`, form); if (s) s.classList.toggle('done', !!on); };
+  function update() {
+    const t = form.work_type.value;
+    const m = form.mode.value;
+    $('#loc-box').hidden = t !== 'Onsite';
+    $('#one-box').hidden = m !== 'one';
+    $('#range-box').hidden = m !== 'range';
+    $('#dates-box').hidden = m !== 'dates';
+    let text = '';
+    let datesOk = false;
+    if (m === 'one' && form.date.value) {
+      datesOk = isWorking(form.date.value);
+      text = datesOk ? `✓ 1 working day · ${fmtDate(form.date.value)}` : `⚠ ${fmtDate(form.date.value)} is a weekend day / holiday.`;
+    } else if (m === 'range' && form.from.value && form.to.value) {
+      const n = form.to.value < form.from.value ? -1 : countWorking(form.from.value, form.to.value);
+      datesOk = n > 0;
+      text = n < 0 ? '⚠ "To" is before "From".' : n ? `✓ ${n} working day(s) · ${fmtDate(form.from.value)} → ${fmtDate(form.to.value)}` : '⚠ No working days in these dates.';
+    } else if (m === 'dates') {
+      const ds = [...new Set($$('input[name=d]', form).map((i) => i.value).filter(Boolean))];
+      const off = ds.filter((d) => !isWorking(d));
+      datesOk = ds.length > 0 && !off.length;
+      if (ds.length) text = off.length ? `⚠ ${off.map(fmtDate).join(', ')}: weekend / holiday.` : `✓ ${ds.length} working day(s)`;
+    }
+    $('#summary').textContent = text;
+    mark(1, !!t);
+    mark(2, datesOk);
+    mark(3, !!form.reason.value.trim());
+  }
+  form.addEventListener('input', update);
+  form.addEventListener('change', update);
+  $('#add-date').addEventListener('click', () => {
+    const list = $('#date-list');
+    if (list.children.length < 10) { list.insertAdjacentHTML('beforeend', dateInput('d')); list.lastElementChild.focus(); }
+  });
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const body = {
+      request_id: requestId, work_type: form.work_type.value, location: form.work_type.value === 'Onsite' ? form.location.value.trim() : '',
+      mode: form.mode.value, date: form.date.value, from: form.from.value, to: form.to.value,
+      dates: $$('input[name=d]', form).map((i) => i.value).filter(Boolean), reason: form.reason.value,
+    };
+    const btn = $('button[type=submit]', form);
+    busy(btn, true, 'Sending…');
+    try {
+      showDone(await api('/portal/work', body));
     } catch (err) {
       if (err.message === 'SIGNED_OUT') return;
       errorBox(errBox, err.message);

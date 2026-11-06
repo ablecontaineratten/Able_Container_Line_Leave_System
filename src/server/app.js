@@ -11,9 +11,10 @@ import portalRoutes from './routes/portal.js';
 import notifyRoutes from './routes/notify.js';
 import summaryRoutes from './routes/summary.js';
 import usageRoutes from './routes/usage.js';
+import workRoutes from './routes/work.js';
 
 // route options: auth (true | false | 'optional'), perm (key or list), allowMustChange
-const routes = [...authRoutes, ...requestRoutes, ...peopleRoutes, ...configRoutes, ...formRoutes, ...portalRoutes, ...notifyRoutes, ...summaryRoutes, ...usageRoutes].map((r) => {
+const routes = [...authRoutes, ...requestRoutes, ...peopleRoutes, ...configRoutes, ...formRoutes, ...portalRoutes, ...notifyRoutes, ...summaryRoutes, ...usageRoutes, ...workRoutes].map((r) => {
   const keys = [];
   const pattern = r.path.replace(/:(\w+)/g, (_, k) => { keys.push(k); return '([^/]+)'; });
   return { ...r, regex: new RegExp(`^${pattern}/?$`), keys };

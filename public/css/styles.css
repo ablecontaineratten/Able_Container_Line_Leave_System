@@ -779,3 +779,20 @@ img.emp-avatar:hover { transform: scale(1.9); position: relative; z-index: 2; }.
 .auth3-check input:checked + i::after { border-color: #28398a; }
 .auth3 input:-webkit-autofill { box-shadow: 0 0 0 40px rgba(40, 57, 138, .6) inset; }
 @media (max-width: 480px) { .auth3-logo { width: 175px; height: auto; } }
+
+/* ---------- Work From Home / Onsite (not leave): WFH = logo blue, Onsite = logo red */
+.work-tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 999px; font-size: .78rem; font-weight: 700; white-space: nowrap; }
+.work-tag.wfh { background: color-mix(in srgb, var(--brand) 12%, #fff); color: var(--brand); }
+.work-tag.onsite { background: var(--accent-bg); color: var(--accent); }
+.work-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; align-items: end; }
+.chip-work.wfh { background: color-mix(in srgb, var(--brand) 10%, #fff); color: var(--brand); border-left: 3px solid var(--brand); }
+.chip-work.onsite { background: var(--accent-bg); color: var(--accent); border-left: 3px solid var(--accent); }
+.chip-work.chip-pending.wfh { border-left-color: var(--brand); color: var(--brand); }
+.chip-work.chip-pending.onsite { border-left-color: var(--accent); color: var(--accent); }
+.cal-legend { margin: 12px 0 0; }
+.dash-stat.wfh { box-shadow: inset 4px 0 0 var(--brand), 0 8px 24px -18px rgba(27, 35, 102, .25); }
+.dash-stat.onsite { box-shadow: inset 4px 0 0 var(--accent), 0 8px 24px -18px rgba(27, 35, 102, .25); }
+.dash-stat.onsite b { color: var(--accent); }
+.lr-work.onsite { box-shadow: inset 4px 0 0 var(--accent), 0 6px 18px -12px rgba(22, 29, 92, .35); }
+.lr-work.wfh { box-shadow: inset 4px 0 0 var(--brand), 0 6px 18px -12px rgba(22, 29, 92, .35); }
+.lr-work .lr-type small { color: var(--muted); font-weight: 600; }

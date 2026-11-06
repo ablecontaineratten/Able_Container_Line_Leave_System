@@ -21,6 +21,7 @@ import settings from './pages/settings.js';
 import access from './pages/access.js';
 import usage from './pages/usage.js';
 import profile from './pages/profile.js';
+import work from './pages/work.js';
 
 const ICONS = {
   home: 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
@@ -42,6 +43,7 @@ const ICONS = {
   bell: 'M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0',
   grid: 'M3 3h18v18H3zM3 9h18M3 15h18M9 3v18M15 3v18',
   more: 'M4 6h16M4 12h16M4 18h10',
+  pin: 'M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21zM12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
 };
 // phone screens: bottom tabs (first 4 of these the person can open) + "More" for the full menu
 const PHONE_TABS = [['home', 'Home'], ['approvals', 'Approvals'], ['my-leave', 'My Leave'], ['calendar', 'Calendar'], ['requests', 'Requests'], ['summary', 'Chart']];
@@ -52,7 +54,9 @@ const ROUTES = [
   // only for people whose login email is also in Employees (for example a head who takes leave too)
   { path: 'my-leave', label: 'My Leave', icon: 'list', page: myLeave, perm: 'mine.view', employee: true },
   { path: 'apply', label: 'Request Leave', icon: 'plus', page: apply, perm: 'leave.apply', employee: true },
-  { path: 'approvals', label: 'Approvals', icon: 'check', page: approvals, perm: ['approve.decide', 'requests.manage'], badge: true },
+  { path: 'approvals', label: 'Approvals', icon: 'check', page: approvals, perm: ['approve.decide', 'requests.manage'], badge: 'leave' },
+  // Work From Home / Onsite requests (not leave)
+  { path: 'work', label: 'WFH / Onsite', icon: 'pin', page: work, perm: ['approve.decide', 'requests.manage', 'requests.view'], badge: 'work' },
   { path: 'requests', label: 'All requests', icon: 'inbox', page: requests, perm: 'requests.view' },
   { path: 'calendar', label: 'Calendar', icon: 'calendar', page: calendar, perm: 'calendar.view' },
   { path: 'team', label: 'Leave Summary', icon: 'users', page: team, perm: 'team.view' },
@@ -99,7 +103,10 @@ async function refreshBadge() {
   if (!els.length) return;
   try {
     const d = await get('/dashboard');
-    els.forEach((el) => { el.textContent = d.pendingCount || ''; el.hidden = !d.pendingCount; });
+    els.forEach((el) => {
+      const n = el.dataset.badge === 'work' ? d.workPendingCount : d.pendingCount;     // leave / Work From Home - Onsite
+      el.textContent = n || ''; el.hidden = !n;
+    });
   } catch { /* ignore */ }
 }
 
@@ -132,10 +139,10 @@ function renderShell() {
   const nav = items.map((r) => {
     const head = r.group && r.group !== group ? `<div class="nav-group">${esc(r.group)}</div>` : '';
     group = r.group || group;
-    return `${head}<a href="#/${r.path}" data-path="${r.path}">${icon(r.icon)}<span>${esc(r.label)}</span>${r.badge ? '<em class="nav-badge js-badge" hidden></em>' : ''}</a>`;
+    return `${head}<a href="#/${r.path}" data-path="${r.path}">${icon(r.icon)}<span>${esc(r.label)}</span>${r.badge ? `<em class="nav-badge js-badge" data-badge="${r.badge}" hidden></em>` : ''}</a>`;
   }).join('');
   const tabs = PHONE_TABS.map(([p, label]) => [items.find((r) => r.path === p), label]).filter(([r]) => r).slice(0, 4)
-    .map(([r, label]) => `<a href="#/${r.path}" data-path="${r.path}">${icon(r.icon)}<span>${esc(label)}</span>${r.badge ? '<em class="js-badge" hidden></em>' : ''}</a>`).join('');
+    .map(([r, label]) => `<a href="#/${r.path}" data-path="${r.path}">${icon(r.icon)}<span>${esc(label)}</span>${r.badge ? `<em class="js-badge" data-badge="${r.badge}" hidden></em>` : ''}</a>`).join('');
   const canApply = items.some((r) => r.path === 'apply');
   const initials = me.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
   root.innerHTML = `

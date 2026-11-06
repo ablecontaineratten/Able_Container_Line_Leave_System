@@ -8,6 +8,7 @@ import {
 } from '../leave.js';
 import { infoTable, page, whenText } from '../email.js';
 import { addDays, clean, esc, isDate, lower, todayIn } from '../utils.js';
+import { workInMonth, workOnDay, workPendingCount } from './work.js';
 
 const LIST_COLUMNS = `id, request_no, group_no, employee_id, emp_no, emp_name, department_id, department, leave_type, from_date, to_date,
   day_type, out_time, return_time, days, hours, reason, status, remark, decided_by, decided_at, submitted_at`;
@@ -16,7 +17,8 @@ async function dashboard(c) {
   const { env, me } = c;
   const settings = await getSettings(env);
   const today = todayIn(settings.timezone);
-  const out = { today, balance: null, recent: [], upcoming: [], pendingCount: 0, onLeaveToday: [] };
+  const out = { today, balance: null, recent: [], upcoming: [], pendingCount: 0, onLeaveToday: [], workPendingCount: 0, workToday: [] };
+  out.workPendingCount = await workPendingCount(env, me);        // Work From Home / Onsite waiting for a decision
   if (me.employee && can(me, 'mine.view')) {
     out.balance = await balanceSummary(env, me.employee.id, today, { settings });
     out.recent = await all(env, `SELECT ${LIST_COLUMNS} FROM leave_requests WHERE employee_id = ? ORDER BY submitted_at DESC, id DESC LIMIT 5`, me.employee.id);
@@ -32,6 +34,7 @@ async function dashboard(c) {
     const s = scopeSql(me);
     out.onLeaveToday = await all(env, `SELECT emp_name, department, leave_type, day_type, from_date, to_date FROM leave_requests
       WHERE status = 'Approved' AND from_date <= ? AND to_date >= ? AND ${s.sql} ORDER BY emp_name`, today, today, ...s.args);
+    out.workToday = await workOnDay(env, me, today);              // approved Work From Home / Onsite today
   }
   // dashboard: pending requests + the latest 5 approved (in my departments) + my latest notifications
   if (can(me, 'requests.view') || can(me, 'approve.decide') || can(me, 'requests.manage')) {
@@ -149,12 +152,13 @@ async function calendar(c) {
   const args = [end, start, ...s.args];
   const dept = Number(c.query.get('department_id'));
   if (dept) { where.push('department_id = ?'); args.push(dept); }
-  const [rows, holidays] = await Promise.all([
+  const [rows, holidays, work] = await Promise.all([
     all(env, `SELECT id, request_no, emp_name, emp_no, department, leave_type, day_type, from_date, to_date, out_time, return_time, status
               FROM leave_requests WHERE ${where.join(' AND ')} ORDER BY emp_name`, ...args),
     all(env, 'SELECT date, name FROM holidays WHERE date >= ? AND date <= ? ORDER BY date', start, end),
+    workInMonth(env, me, start, end, dept),                       // Work From Home / Onsite (shown, not counted as leave)
   ]);
-  return { month, start, end, rows, holidays };
+  return { month, start, end, rows, holidays, work };
 }
 
 // Every employee in scope with the balance of every leave type (one query for all requests)

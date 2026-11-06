@@ -2,6 +2,7 @@
 import { get, post } from './api.js';
 import { $, $$, daysText, esc, fmtDateTime, openModal, toast, whenText } from './ui.js';
 import { allowedActions, runAction } from './components/requests.js';
+import { decideWork, workTag, workWhen } from './components/work.js';
 import { enablePush, notificationSettings, pushState, PUSH_HELP } from './push.js';
 
 export const PHONE = window.matchMedia('(max-width: 760px)');
@@ -54,7 +55,7 @@ export function renderLite(root, ctx, { bell }) {
         <div class="spacer"></div>
         ${bell}
       </header>
-      <h1 class="lite-title">Leave requests</h1>
+      <h1 class="lite-title">Requests</h1>
       <div id="lite-push"></div>
       <div class="lite-seg" role="tablist">
         <button data-tab="pending" class="on">${svg(I.clock)} Waiting <em id="lite-count" hidden></em></button>
@@ -65,7 +66,29 @@ export function renderLite(root, ctx, { bell }) {
 
   const listEl = $('#lite-list');
 
+  // Work From Home / Onsite request (not leave)
+  function workCard(r, i) {
+    const decided = r.status !== 'Pending';
+    const mine = me.employee && r.employee_id === me.employee.id && !me.isSuper;
+    return `<article class="lr-card lr-work ${r.work_type === 'Onsite' ? 'onsite' : 'wfh'}" style="--i:${i}">
+      <div class="lr-head">
+        <span class="lr-av" style="--h:${hue(r.emp_name)}">${esc(initials(r.emp_name))}</span>
+        <div class="lr-who"><b>${esc(r.emp_name)}</b><small>${esc(r.department || '-')} · ${esc(r.emp_no || '')}</small></div>
+        ${decided ? `<span class="pill s-${esc(r.status.toLowerCase())}">${esc(r.status)}</span>` : `<span class="lr-days">${r.days} day${r.days === 1 ? '' : 's'}</span>`}
+      </div>
+      <div class="lr-type"><b>${workTag(r)}${r.location ? ` <small>${esc(r.location)}</small>` : ''}</b><span>${svg(I.cal)}${esc(workWhen(r))}</span></div>
+      ${r.reason ? `<p class="lr-note">${svg(I.note)}<span>${esc(r.reason)}</span></p>` : ''}
+      ${decided
+    ? `<div class="lr-meta">${esc(r.status)} by ${esc(r.decided_by || '-')} · ${esc(fmtDateTime(r.decided_at, tz))}${r.remark ? `<br>“${esc(r.remark)}”` : ''}</div>`
+    : `<div class="lr-meta">Not leave · requested ${esc(fmtDateTime(r.submitted_at, tz))}</div>`}
+      ${!decided && !mine ? `<div class="lr-act">
+        <button class="lr-btn no" data-act="reject" data-i="${i}">${svg(I.x)} Reject</button>
+        <button class="lr-btn yes" data-act="approve" data-i="${i}">${svg(I.check)} Approve</button></div>` : ''}
+    </article>`;
+  }
+
   function card(r, i) {
+    if (r.kind === 'work') return workCard(r, i);
     const acts = allowedActions(r, me).filter((a) => a === 'approve' || a === 'reject');
     const decided = r.status !== 'Pending';
     return `<article class="lr-card" style="--i:${i}">
@@ -88,11 +111,19 @@ export function renderLite(root, ctx, { bell }) {
   async function load() {
     if (!listEl.children.length) listEl.innerHTML = '<div class="app-loading"><span class="spinner"></span></div>';
     try {
-      const [pending, done] = await Promise.all([get('/requests?view=pending'), tab === 'done' ? get('/requests?view=decided') : null]);
+      // leave + Work From Home / Onsite
+      const [pending, done, workPending, workAll] = await Promise.all([
+        get('/requests?view=pending'), tab === 'done' ? get('/requests?view=decided') : null,
+        get('/work?status=Pending'), tab === 'done' ? get('/work') : null,
+      ]);
+      const asWork = (list) => list.map((w) => ({ ...w, kind: 'work' }));
+      const waiting = [...pending.rows, ...asWork(workPending.rows)];
       const count = $('#lite-count');
-      count.textContent = pending.rows.length;
-      count.hidden = !pending.rows.length;
-      rows = tab === 'pending' ? pending.rows.sort((a, b) => (a.from_date < b.from_date ? -1 : 1)) : done.rows;
+      count.textContent = waiting.length;
+      count.hidden = !waiting.length;
+      rows = tab === 'pending' ? waiting.sort((a, b) => (a.from_date < b.from_date ? -1 : 1))
+        : [...done.rows, ...asWork(workAll.rows.filter((w) => w.status !== 'Pending'))]
+          .sort((a, b) => String(b.decided_at || '').localeCompare(String(a.decided_at || '')));
     } catch (err) {
       listEl.innerHTML = `<div class="app-empty"><b>Could not load</b><span>${esc(err.message)}</span></div>`;
       return;
@@ -101,7 +132,8 @@ export function renderLite(root, ctx, { bell }) {
       : `<div class="app-empty">${svg(tab === 'pending' ? I.check : I.clock)}<b>${tab === 'pending' ? 'Nothing is waiting 🎉' : 'No decisions yet'}</b>
           <span>${tab === 'pending' ? 'New leave requests from your department will show here.' : 'Requests you approve or reject will show here.'}</span></div>`;
     $$('[data-act]', listEl).forEach((b) => b.addEventListener('click', async () => {
-      if (await runAction(b.dataset.act, [rows[Number(b.dataset.i)]], ctx)) load();
+      const r = rows[Number(b.dataset.i)];
+      if (await (r.kind === 'work' ? decideWork(b.dataset.act, [r], ctx) : runAction(b.dataset.act, [r], ctx))) load();
     }));
   }
 
