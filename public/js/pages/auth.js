@@ -10,7 +10,7 @@ function frame(root, brand, title, sub, inner) {
     <div class="auth3-glow" aria-hidden="true"><i></i><i></i><i></i></div>
     <img class="trial-stamp auth3-trial" src="/img/trial-stamp.svg" alt="Trial version">
     <main class="auth3-box">
-      <div class="auth3-logo" role="img" aria-label="${company} logo"><img src="/img/logo-full.png" alt=""><span class="auth3-shine"></span></div>
+      <div class="auth3-logo" role="img" aria-label="${company} logo"><img src="/img/logo-white.png" alt=""><span class="auth3-shine"></span></div>
       <p class="auth3-tag">${company} · Leave System</p>
       <h1>${esc(title)}</h1>${sub ? `<p class="auth3-sub">${sub}</p>` : ''}
       ${inner}
