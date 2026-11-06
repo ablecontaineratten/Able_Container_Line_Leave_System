@@ -4,58 +4,6 @@ import { esc, fmtDate, fmtDateTime, tableHtml, toast } from '../ui.js';
 import { enablePush, PUSH_HELP, pushState } from '../push.js';
 import { requestColumns, runAction, wireOpen } from '../components/requests.js';
 
-// ---------------------------------------------------------------- birthday calendar
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const firstName = (n) => String(n).split(/\s+/)[0];
-
-// birthdays: [{ name, department, md: 'MM-DD' }]; today: 'YYYY-MM-DD'
-function birthdayCalendar(box, birthdays, today) {
-  let y = Number(today.slice(0, 4));
-  let m = Number(today.slice(5, 7));                  // 1-12
-  const todayMd = today.slice(5);
-  const todays = birthdays.filter((b) => b.md === todayMd);
-
-  const draw = () => {
-    const mm = String(m).padStart(2, '0');
-    const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
-    const lead = (new Date(Date.UTC(y, m - 1, 1)).getUTCDay() + 6) % 7;           // weeks start on Monday
-    const inMonth = birthdays.filter((b) => b.md.slice(0, 2) === mm);
-    const byDay = {};
-    inMonth.forEach((b) => {
-      let d = Number(b.md.slice(3));
-      if (d > days) d = days;                                                     // 29 Feb in a normal year -> 28 Feb
-      (byDay[d] = byDay[d] || []).push(b);
-    });
-    const cells = [];
-    for (let i = 0; i < lead; i++) cells.push('<div class="bd-cell empty"></div>');
-    for (let d = 1; d <= days; d++) {
-      const list = byDay[d] || [];
-      const isToday = `${y}-${mm}-${String(d).padStart(2, '0')}` === today;
-      cells.push(`<div class="bd-cell ${list.length ? 'has' : ''} ${isToday ? 'today' : ''}" ${list.length ? `title="${esc(list.map((b) => b.name).join(', '))}"` : ''}>
-        <span class="bd-num">${d}</span>
-        ${list.length ? `<span class="bd-cake">🎂</span>${list.slice(0, 2).map((b) => `<span class="bd-name">${esc(firstName(b.name))}</span>`).join('')}${list.length > 2 ? `<span class="bd-more">+${list.length - 2}</span>` : ''}` : ''}
-      </div>`);
-    }
-    box.innerHTML = `
-      ${todays.length ? `<div class="bd-today">🎉 <span>Happy birthday <b>${esc(todays.map((b) => b.name).join(', '))}</b>!</span> 🎈</div>` : ''}
-      <div class="card-head"><h2>🎂 Birthdays</h2>
-        <div class="bd-nav"><button class="btn btn-small" data-m="-1" aria-label="Previous month">‹</button>
-          <b>${MONTHS[m - 1]} ${y}</b><button class="btn btn-small" data-m="1" aria-label="Next month">›</button></div></div>
-      <div class="bd-grid">${DOW.map((x) => `<div class="bd-head">${x}</div>`).join('')}${cells.join('')}</div>
-      ${inMonth.length ? `<ul class="bd-list">${inMonth.map((b) => `<li><span class="bd-date">${Number(b.md.slice(3))} ${MONTHS[m - 1].slice(0, 3)}</span>
-        <b>${esc(b.name)}</b><small>${esc(b.department || '')}</small></li>`).join('')}</ul>`
-        : '<p class="muted small" style="margin:10px 0 0">No birthdays this month.</p>'}`;
-    box.querySelectorAll('[data-m]').forEach((btn) => btn.addEventListener('click', () => {
-      m += Number(btn.dataset.m);
-      if (m < 1) { m = 12; y--; }
-      if (m > 12) { m = 1; y++; }
-      draw();
-    }));
-  };
-  draw();
-}
-
 export default async function render(view, ctx) {
   const { me, settings } = ctx.state;
   const d = await get('/dashboard');
@@ -97,10 +45,7 @@ export default async function render(view, ctx) {
     <section class="card">
       <div class="card-head"><h2>Latest approved</h2><a href="#/requests?status=Approved">See all</a></div>
       <div id="approved-list">${tableHtml(requestColumns(), approved, { empty: 'No approved requests yet.' })}</div>
-    </section>
-
-    <section class="card bday-card" id="bday-card"></section>`;
-  birthdayCalendar(view.querySelector('#bday-card'), d.birthdays || [], d.today);
+    </section>`;
 
   const refresh = () => { ctx.refreshBadge(); render(view, ctx); };
   const pendingEl = view.querySelector('#pending-list');

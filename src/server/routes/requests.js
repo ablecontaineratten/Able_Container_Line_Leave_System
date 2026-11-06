@@ -43,10 +43,6 @@ async function dashboard(c) {
   }
   out.notifications = await all(env, `SELECT id, title, body, url, read_at, created_at FROM notifications
     WHERE owner_type = 'user' AND owner_id = ? ORDER BY id DESC LIMIT 5`, me.id);
-  // birthdays for the dashboard calendar (month-day only; the year is never sent)
-  const bs = scopeSql(me, 'e.department_id');
-  out.birthdays = await all(env, `SELECT e.name, d.name AS department, substr(e.birthday, 6, 5) AS md FROM employees e
-    LEFT JOIN departments d ON d.id = e.department_id WHERE e.status = 'Active' AND e.birthday <> '' AND ${bs.sql} ORDER BY md, e.name`, ...bs.args);
   return out;
 }
 

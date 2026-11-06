@@ -28,7 +28,6 @@ export default async function render(view, ctx) {
     { name: 'email', label: 'Email', type: 'email', help: 'Needed to sign in and to get emails.' },
     { name: 'department_id', label: 'Department', type: 'select', required: true, options: [{ value: '', label: 'Choose…' }, ...departments.map((d) => ({ value: d.id, label: d.name }))] },
     { name: 'status', label: 'Status', type: 'select', options: [{ value: 'Active', label: 'Active' }, { value: 'Inactive', label: 'Inactive' }] },
-    { name: 'birthday', label: 'Birthday', type: 'date', help: 'Optional. Shown on the dashboard calendar.' },
     // Designation: tick the box, then pick one from the list, or "<Add New>" and type it (saved with the employee)
     { name: 'has_designation', label: 'Has a designation', type: 'checkbox', full: true },
     { name: 'designation_pick', label: 'Designation', type: 'select', showIf: (v) => v.has_designation,

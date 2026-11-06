@@ -6,10 +6,10 @@ import { checkPasswordRules, setPassword, tempPassword } from '../auth.js';
 import { DEFAULT_PASSWORD, photoResponse } from './portal.js';
 import { getSettings } from '../settings.js';
 import { layout, sendEmail } from '../email.js';
-import { clean, esc, isDate, isEmail, lower } from '../utils.js';
+import { clean, esc, isEmail, lower } from '../utils.js';
 
 // ---------------------------------------------------------------- employees
-const EMPLOYEE_SQL = `SELECT e.id, e.emp_no, e.name, e.email, e.department_id, d.name AS department, e.status, e.birthday, e.designation,
+const EMPLOYEE_SQL = `SELECT e.id, e.emp_no, e.name, e.email, e.department_id, d.name AS department, e.status, e.designation,
   (e.portal_hash <> '') AS own_password, e.portal_last_login, e.photo_at,
   (SELECT u.id FROM users u WHERE e.email <> '' AND u.email = e.email COLLATE NOCASE) AS user_id
   FROM employees e LEFT JOIN departments d ON d.id = e.department_id`;
@@ -56,10 +56,8 @@ function employeeInput(c, b) {
     email: lower(b.email),
     department_id: Number(b.department_id) || null,
     status: b.status === 'Inactive' ? 'Inactive' : 'Active',
-    birthday: clean(b.birthday),
     designation: clean(b.designation).replace(/\s+/g, ' ').slice(0, 80),
   };
-  if (v.birthday && !isDate(v.birthday)) fail(400, 'Birthday is not a valid date.');
   if (!v.emp_no || v.emp_no.length > 30) fail(400, 'Employee number is required.');
   if (!v.name || v.name.length > 100) fail(400, 'Name is required.');
   if (v.email && !isEmail(v.email)) fail(400, 'Email is not valid.');
@@ -77,8 +75,8 @@ async function createEmployee(c) {
   const v = employeeInput(c, await readJson(c.request));
   v.designation = await listSpelling(c.env, v.designation);
   await checkEmployeeUnique(c.env, v);
-  const res = await run(c.env, 'INSERT INTO employees (emp_no, name, email, department_id, status, birthday, designation) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    v.emp_no, v.name, v.email, v.department_id, v.status, v.birthday, v.designation);
+  const res = await run(c.env, 'INSERT INTO employees (emp_no, name, email, department_id, status, designation) VALUES (?, ?, ?, ?, ?, ?)',
+    v.emp_no, v.name, v.email, v.department_id, v.status, v.designation);
   await batch(c.env, [rememberDesignation(c.env, v.designation)]);
   return { id: res.meta.last_row_id };
 }
@@ -93,8 +91,8 @@ async function updateEmployee(c) {
   await checkEmployeeUnique(c.env, v, id);
   const dept = await first(c.env, 'SELECT name FROM departments WHERE id = ?', v.department_id);
   await batch(c.env, [
-    stmt(c.env, 'UPDATE employees SET emp_no = ?, name = ?, email = ?, department_id = ?, status = ?, birthday = ?, designation = ? WHERE id = ?',
-      v.emp_no, v.name, v.email, v.department_id, v.status, v.birthday, v.designation, id),
+    stmt(c.env, 'UPDATE employees SET emp_no = ?, name = ?, email = ?, department_id = ?, status = ?, designation = ? WHERE id = ?',
+      v.emp_no, v.name, v.email, v.department_id, v.status, v.designation, id),
     rememberDesignation(c.env, v.designation),
     // keep the requests in line with the employee record
     stmt(c.env, 'UPDATE leave_requests SET emp_no = ?, emp_name = ?, emp_email = ? WHERE employee_id = ?', v.emp_no, v.name, v.email, id),
