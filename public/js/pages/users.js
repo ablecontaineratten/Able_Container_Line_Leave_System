@@ -27,11 +27,13 @@ export default async function render(view, ctx) {
     .filter(([k]) => me.isSuper || (k !== 'admin' && k !== 'super_admin'))
     .map(([value, label]) => ({ value, label }));
   const editable = (u) => me.isSuper || (u.role !== 'admin' && u.role !== 'super_admin');
+  // Designation: only for Department heads (the box appears when the role is Department head)
+  const designationField = { name: 'designation', label: 'Designation', placeholder: 'e.g. Operations Manager', showIf: (v) => v.role === 'head' };
 
   const columns = [
     { label: 'Name', render: (u) => `<b>${esc(u.name)}</b>${u.emp_no ? `<div class="muted small">${esc(u.emp_no)}</div>` : ''}` },
     { label: 'Email', render: (u) => esc(u.email) },
-    { label: 'Role', render: (u) => `${esc(data.roles[u.role] || u.role)}${u.head_of.length ? `<div class="muted small">Head of ${esc(u.head_of.join(', '))}</div>` : ''}` },
+    { label: 'Role', render: (u) => `${esc(data.roles[u.role] || u.role)}${u.role === 'head' && u.designation ? `<div class="small"><b>${esc(u.designation)}</b></div>` : ''}${u.head_of.length ? `<div class="muted small">Head of ${esc(u.head_of.join(', '))}</div>` : ''}` },
     { label: 'Status', render: (u) => `<span class="badge ${u.status === 'active' ? 'badge-approved' : 'badge-rejected'}">${u.status === 'active' ? 'Active' : 'Disabled'}</span>${u.must_change ? '<div class="muted small">Must change password</div>' : ''}` },
     { label: 'Last sign in', render: (u) => `<span class="small">${esc(fmtDateTime(u.last_login, ctx.state.settings.timezone) || 'Never')}</span>` },
     canEdit || canDelete ? { label: '', cls: 'actions', render: (u) => (editable(u) ? `${canEdit ? '<button class="btn btn-small" data-edit>Edit</button> <button class="btn btn-small" data-reset>Reset password</button>' : ''}
@@ -51,6 +53,7 @@ export default async function render(view, ctx) {
     const fields = [
       { name: 'name', label: 'Name', required: true },
       { name: 'role', label: 'Role', type: 'select', options: roleOptions.some((o) => o.value === u.role) ? roleOptions : [{ value: u.role, label: data.roles[u.role] }, ...roleOptions] },
+      designationField,
       { name: 'status', label: 'Status', type: 'select', options: [{ value: 'active', label: 'Active' }, { value: 'disabled', label: 'Disabled (cannot sign in)' }] },
     ];
     if (await formDialog({ title: `Edit ${u.name}`, fields, values: u, onSubmit: (v) => put(`/users/${u.id}`, v) })) { toast('Saved.'); reload(); }
@@ -72,6 +75,7 @@ export default async function render(view, ctx) {
       { name: 'name', label: 'Name', required: true },
       { name: 'email', label: 'Email', type: 'email', required: true },
       { name: 'role', label: 'Role', type: 'select', options: roleOptions },
+      designationField,
     ];
     const res = await formDialog({ title: 'Add account', fields, values: { role: 'head' }, onSubmit: (v) => post('/users', v).then((r) => ({ ...r, ...v })) });
     if (res) { showPasswords([res]); reload(); }

@@ -135,15 +135,22 @@ export function formDialog({ title, fields, values = {}, submitText = 'Save', on
     });
     const form = m.el.querySelector('form');
     const errBox = form.querySelector('.form-error');
+    // fields with showIf(values) only appear when it returns true (e.g. Designation only for Department heads)
+    const shown = (f) => !f.showIf || f.showIf(readForm(form, fields));
+    const boxOf = (f) => { const el = form.elements[f.name]; return (el && el.closest ? el : el && el[0])?.closest('.field, .check'); };
+    const syncShown = () => fields.filter((f) => f.showIf).forEach((f) => { const box = boxOf(f); if (box) box.hidden = !shown(f); });
+    if (fields.some((f) => f.showIf)) { form.addEventListener('change', syncShown); form.addEventListener('input', syncShown); syncShown(); }
     m.el.querySelector('[data-cancel]').addEventListener('click', () => { m.close(); resolve(false); });
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const missing = fields.find((f) => f.required && f.type !== 'checkbox' && !form.elements[f.name].value.trim());
+      const missing = fields.find((f) => f.required && f.type !== 'checkbox' && shown(f) && !form.elements[f.name].value.trim());
       if (missing) { errBox.textContent = `${missing.label} is required.`; errBox.hidden = false; return; }
       const btn = form.querySelector('button[type=submit]');
       btn.disabled = true;
       try {
-        const result = await onSubmit(readForm(form, fields));
+        const values = readForm(form, fields);
+        fields.filter((f) => !shown(f)).forEach((f) => { values[f.name] = f.type === 'checkbox' ? false : f.type === 'multiselect' ? [] : ''; });
+        const result = await onSubmit(values);
         m.close();
         resolve(result ?? true);
       } catch (err) {

@@ -232,7 +232,7 @@ async function deleteDepartment(c) {
 // ---------------------------------------------------------------- login accounts
 async function listUsers(c) {
   const [users, heads] = await Promise.all([
-    all(c.env, `SELECT u.id, u.email, u.name, u.role, u.status, u.must_change, u.last_login, u.created_at,
+    all(c.env, `SELECT u.id, u.email, u.name, u.role, u.designation, u.status, u.must_change, u.last_login, u.created_at,
                 (SELECT e.emp_no FROM employees e WHERE e.email <> '' AND e.email = u.email COLLATE NOCASE) AS emp_no
                 FROM users u ORDER BY u.name`),
     all(c.env, 'SELECT h.user_id, d.name FROM department_heads h JOIN departments d ON d.id = h.department_id'),
@@ -241,6 +241,12 @@ async function listUsers(c) {
     roles: ROLE_LABELS,
     rows: users.map((u) => ({ ...u, head_of: heads.filter((h) => h.user_id === u.id).map((h) => h.name) })),
   };
+}
+
+// Designation is only kept for Department heads
+function designationFor(role, value) {
+  const d = clean(value).slice(0, 80);
+  return role === 'head' ? d : '';
 }
 
 function roleAllowed(me, role) {
@@ -268,7 +274,8 @@ async function createUser(c) {
   if (!name) fail(400, 'Enter the name.');
   roleAllowed(c.me, role);
   if (await first(c.env, 'SELECT id FROM users WHERE email = ? COLLATE NOCASE', email)) fail(400, 'An account with this email already exists.');
-  const res = await run(c.env, `INSERT INTO users (email, name, role, status, must_change) VALUES (?, ?, ?, 'active', 1)`, email, name, role);
+  const res = await run(c.env, `INSERT INTO users (email, name, role, designation, status, must_change) VALUES (?, ?, ?, ?, 'active', 1)`,
+    email, name, role, designationFor(role, b.designation));
   const password = tempPassword();
   await setPassword(c.env, res.meta.last_row_id, password, true);
   const emailed = await welcome(c, { email, name }, password);
@@ -295,7 +302,8 @@ async function updateUser(c) {
     const supers = await first(c.env, `SELECT COUNT(*) AS n FROM users WHERE role = 'super_admin' AND status = 'active'`);
     if (supers.n <= 1) fail(400, 'There must always be at least one active Super admin.');
   }
-  await run(c.env, 'UPDATE users SET name = ?, role = ?, status = ? WHERE id = ?', name, role, status, id);
+  const designation = designationFor(role, b.designation === undefined ? u.designation : b.designation);
+  await run(c.env, 'UPDATE users SET name = ?, role = ?, designation = ?, status = ? WHERE id = ?', name, role, designation, status, id);
   if (status === 'disabled') await run(c.env, 'DELETE FROM sessions WHERE user_id = ?', id);
   return { ok: true };
 }
