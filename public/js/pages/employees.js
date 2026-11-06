@@ -3,6 +3,7 @@ import { del, get, post, put } from '../api.js';
 import { $, confirmDialog, downloadCsv, esc, formDialog, openModal, pageHead, parseCsv, tableHtml, toast } from '../ui.js';
 
 const DEFAULT_PASSWORD = 'user@123';     // same as DEFAULT_PASSWORD in src/server/routes/portal.js
+const NEW_DESIGNATION = '__new__';       // the "<Add New>" choice in the Designation list
 
 // Small round photo (chosen by the employee in the app), or coloured initials
 function empAvatar(e) {
@@ -28,10 +29,27 @@ export default async function render(view, ctx) {
     { name: 'department_id', label: 'Department', type: 'select', required: true, options: [{ value: '', label: 'Choose…' }, ...departments.map((d) => ({ value: d.id, label: d.name }))] },
     { name: 'status', label: 'Status', type: 'select', options: [{ value: 'Active', label: 'Active' }, { value: 'Inactive', label: 'Inactive' }] },
     { name: 'birthday', label: 'Birthday', type: 'date', help: 'Optional. Shown on the dashboard calendar.' },
+    // Designation: tick the box, then pick one from the list, or "<Add New>" and type it (saved with the employee)
+    { name: 'has_designation', label: 'Has a designation', type: 'checkbox', full: true },
+    { name: 'designation_pick', label: 'Designation', type: 'select', showIf: (v) => v.has_designation,
+      options: [{ value: NEW_DESIGNATION, label: '<Add New>' }, ...(data.designations || []).map((d) => ({ value: d, label: d }))] },
+    { name: 'designation_new', label: 'New designation', required: true, placeholder: 'Type the new designation',
+      showIf: (v) => v.has_designation && v.designation_pick === NEW_DESIGNATION },
   ];
+  // form values <-> the one "designation" the server keeps
+  const formValues = (e) => {
+    const known = (data.designations || []).some((d) => d.toLowerCase() === String(e.designation || '').toLowerCase());
+    return { ...e, has_designation: !!e.designation,
+      designation_pick: e.designation && known ? (data.designations.find((d) => d.toLowerCase() === e.designation.toLowerCase())) : NEW_DESIGNATION,
+      designation_new: e.designation && !known ? e.designation : '' };
+  };
+  const toServer = (v) => {
+    const { has_designation: has, designation_pick: pick, designation_new: typed, ...rest } = v;
+    return { ...rest, designation: has ? (pick === NEW_DESIGNATION ? typed : pick) : '' };
+  };
   const columns = [
     { label: 'No', render: (e) => `<b>${esc(e.emp_no)}</b>` },
-    { label: 'Name', render: (e) => `<span class="emp-cell">${empAvatar(e)}<span>${esc(e.name)}</span></span>` },
+    { label: 'Name', render: (e) => `<span class="emp-cell">${empAvatar(e)}<span>${esc(e.name)}${e.designation ? `<div class="muted small">${esc(e.designation)}</div>` : ''}</span></span>` },
     { label: 'Email', render: (e) => esc(e.email) },
     { label: 'Department', render: (e) => esc(e.department || '-') },
     { label: 'Status', render: (e) => `<span class="badge ${e.status === 'Active' ? 'badge-approved' : 'badge-cancelled'}">${esc(e.status)}</span>` },
@@ -53,7 +71,7 @@ export default async function render(view, ctx) {
     el.innerHTML = tableHtml(columns, list, { empty: 'No employees yet.' });
     el.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', async () => {
       const e = list[Number(b.closest('tr').dataset.index)];
-      if (await formDialog({ title: `Edit ${e.name}`, fields, values: e, onSubmit: (v) => put(`/employees/${e.id}`, v) })) { toast('Saved.'); reload(); }
+      if (await formDialog({ title: `Edit ${e.name}`, fields, values: formValues(e), onSubmit: (v) => put(`/employees/${e.id}`, toServer(v)) })) { toast('Saved.'); reload(); }
     }));
     el.querySelectorAll('[data-portal]').forEach((b) => b.addEventListener('click', async () => {
       const e = list[Number(b.closest('tr').dataset.index)];
@@ -71,15 +89,15 @@ export default async function render(view, ctx) {
 
   $('#search').addEventListener('input', (e) => {
     const t = e.target.value.trim().toLowerCase();
-    draw(t ? rows.filter((r) => [r.emp_no, r.name, r.email, r.department].join(' ').toLowerCase().includes(t)) : rows);
+    draw(t ? rows.filter((r) => [r.emp_no, r.name, r.email, r.department, r.designation].join(' ').toLowerCase().includes(t)) : rows);
   });
-  $('#export').addEventListener('click', () => downloadCsv('employees.csv', ['emp_no', 'name', 'email', 'department', 'status'],
-    rows.map((e) => [e.emp_no, e.name, e.email, e.department, e.status])));
+  $('#export').addEventListener('click', () => downloadCsv('employees.csv', ['emp_no', 'name', 'email', 'department', 'status', 'designation'],
+    rows.map((e) => [e.emp_no, e.name, e.email, e.department, e.status, e.designation])));
   if (!canEdit) return;
 
   $('#add').addEventListener('click', async () => {
     if (!departments.length) return toast('Add a department first (Departments page).', 'error');
-    if (await formDialog({ title: 'Add employee', fields, values: { status: 'Active' }, onSubmit: (v) => post('/employees', v) })) { toast('Employee added.'); reload(); }
+    if (await formDialog({ title: 'Add employee', fields, values: { status: 'Active', designation_pick: NEW_DESIGNATION }, onSubmit: (v) => post('/employees', toServer(v)) })) { toast('Employee added.'); reload(); }
   });
 
   $('#import').addEventListener('click', () => {

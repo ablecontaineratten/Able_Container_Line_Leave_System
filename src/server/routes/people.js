@@ -9,14 +9,30 @@ import { layout, sendEmail } from '../email.js';
 import { clean, esc, isDate, isEmail, lower } from '../utils.js';
 
 // ---------------------------------------------------------------- employees
-const EMPLOYEE_SQL = `SELECT e.id, e.emp_no, e.name, e.email, e.department_id, d.name AS department, e.status, e.birthday,
+const EMPLOYEE_SQL = `SELECT e.id, e.emp_no, e.name, e.email, e.department_id, d.name AS department, e.status, e.birthday, e.designation,
   (e.portal_hash <> '') AS own_password, e.portal_last_login, e.photo_at,
   (SELECT u.id FROM users u WHERE e.email <> '' AND u.email = e.email COLLATE NOCASE) AS user_id
   FROM employees e LEFT JOIN departments d ON d.id = e.department_id`;
 
 async function listEmployees(c) {
   const s = scopeSql(c.me, 'e.department_id');
-  return { rows: await all(c.env, `${EMPLOYEE_SQL} WHERE ${s.sql} ORDER BY e.emp_no`, ...s.args) };
+  const [rows, designations] = await Promise.all([
+    all(c.env, `${EMPLOYEE_SQL} WHERE ${s.sql} ORDER BY e.emp_no`, ...s.args),
+    all(c.env, 'SELECT name FROM designations ORDER BY name COLLATE NOCASE'),
+  ]);
+  return { rows, designations: designations.map((d) => d.name) };
+}
+
+// "clearing executive" typed again uses the list's spelling ("Clearing Executive")
+async function listSpelling(env, name) {
+  if (!name) return '';
+  const hit = await first(env, 'SELECT name FROM designations WHERE name = ? COLLATE NOCASE', name);
+  return hit ? hit.name : name;
+}
+
+// A designation typed as "<Add New>" joins the list (nothing happens if it is already there)
+function rememberDesignation(env, name) {
+  return name ? stmt(env, 'INSERT OR IGNORE INTO designations (name) VALUES (?)', name) : null;
 }
 
 // An employee's profile photo (chosen by them in the leave request app)
@@ -41,6 +57,7 @@ function employeeInput(c, b) {
     department_id: Number(b.department_id) || null,
     status: b.status === 'Inactive' ? 'Inactive' : 'Active',
     birthday: clean(b.birthday),
+    designation: clean(b.designation).replace(/\s+/g, ' ').slice(0, 80),
   };
   if (v.birthday && !isDate(v.birthday)) fail(400, 'Birthday is not a valid date.');
   if (!v.emp_no || v.emp_no.length > 30) fail(400, 'Employee number is required.');
@@ -58,9 +75,11 @@ async function checkEmployeeUnique(env, v, id = 0) {
 
 async function createEmployee(c) {
   const v = employeeInput(c, await readJson(c.request));
+  v.designation = await listSpelling(c.env, v.designation);
   await checkEmployeeUnique(c.env, v);
-  const res = await run(c.env, 'INSERT INTO employees (emp_no, name, email, department_id, status, birthday) VALUES (?, ?, ?, ?, ?, ?)',
-    v.emp_no, v.name, v.email, v.department_id, v.status, v.birthday);
+  const res = await run(c.env, 'INSERT INTO employees (emp_no, name, email, department_id, status, birthday, designation) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    v.emp_no, v.name, v.email, v.department_id, v.status, v.birthday, v.designation);
+  await batch(c.env, [rememberDesignation(c.env, v.designation)]);
   return { id: res.meta.last_row_id };
 }
 
@@ -70,11 +89,13 @@ async function updateEmployee(c) {
   if (!old) fail(404, 'Employee not found.');
   if (!inScope(c.me, old.department_id)) fail(403, 'This employee is not in your department(s).');
   const v = employeeInput(c, await readJson(c.request));
+  v.designation = await listSpelling(c.env, v.designation);
   await checkEmployeeUnique(c.env, v, id);
   const dept = await first(c.env, 'SELECT name FROM departments WHERE id = ?', v.department_id);
   await batch(c.env, [
-    stmt(c.env, 'UPDATE employees SET emp_no = ?, name = ?, email = ?, department_id = ?, status = ?, birthday = ? WHERE id = ?',
-      v.emp_no, v.name, v.email, v.department_id, v.status, v.birthday, id),
+    stmt(c.env, 'UPDATE employees SET emp_no = ?, name = ?, email = ?, department_id = ?, status = ?, birthday = ?, designation = ? WHERE id = ?',
+      v.emp_no, v.name, v.email, v.department_id, v.status, v.birthday, v.designation, id),
+    rememberDesignation(c.env, v.designation),
     // keep the requests in line with the employee record
     stmt(c.env, 'UPDATE leave_requests SET emp_no = ?, emp_name = ?, emp_email = ? WHERE employee_id = ?', v.emp_no, v.name, v.email, id),
     stmt(c.env, `UPDATE leave_requests SET department_id = ?, department = ? WHERE employee_id = ? AND status = 'Pending'`, v.department_id, dept ? dept.name : '', id),
