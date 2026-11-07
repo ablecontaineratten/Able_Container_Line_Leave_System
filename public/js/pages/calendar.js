@@ -1,6 +1,7 @@
 // Leave calendar: who is on leave each day of the month
-import { get, qs } from '../api.js';
-import { addDays, esc, fmtDate, monthLabel, pageHead, toUtc } from '../ui.js';
+import { get, put, qs } from '../api.js';
+import { addDays, esc, fmtDate, monthLabel, pageHead, toast, toUtc } from '../ui.js';
+import { DAYS, holidaysSection } from './settings.js';
 import { workEmoji, workKey } from '../components/work.js';
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -46,7 +47,15 @@ export default async function render(view, ctx) {
   }
 
   const deptOptions = departments.filter((d) => me.scopeAll || me.deptIds.includes(d.id));
+  // Weekend days (not counted as leave) - changed here by people who can edit settings
+  const canEditSettings = !!me.perms['settings.edit'];
+  const showHolidays = !!(me.perms['settings.view'] || canEditSettings);
   view.innerHTML = `${pageHead('Leave Calendar')}
+    <form class="card weekend-card" id="weekend-form">
+      <span class="weekend-title">Weekend days <small class="muted">(not counted as leave)</small></span>
+      <div class="weekend-days">${DAYS.map((d, i) => `<label class="day-chip"><input type="checkbox" name="weekend" value="${i}" ${weekend.has(i) ? 'checked' : ''} ${canEditSettings ? '' : 'disabled'}><span>${d.slice(0, 3)}</span></label>`).join('')}</div>
+      ${canEditSettings ? '<button class="btn btn-primary btn-small" type="submit" id="weekend-save" hidden>Save</button>' : ''}
+    </form>
     <div class="card">
       <div class="cal-toolbar">
         <a class="btn btn-small" href="#/calendar${qs({ month: shiftMonth(month, -1), department_id: dept })}" aria-label="Previous month">‹</a>
@@ -60,7 +69,27 @@ export default async function render(view, ctx) {
       <div class="cal-grid">${DAY_NAMES.map((n) => `<div class="cal-head">${n}</div>`).join('')}${cells.join('')}</div>
       <p class="cal-legend muted small">🏠 = Work From Home (shown for information, <b>not leave</b>). Striped = waiting for approval.</p>
       <ul class="cal-agenda">${agenda.join('') || '<li class="muted">No leave this month.</li>'}</ul>
-    </div>`;
+    </div>
+    ${showHolidays ? '<div id="holidays"></div>' : ''}`;
   const sel = view.querySelector('#dept');
   if (sel) sel.addEventListener('change', () => ctx.go(`calendar${qs({ month, department_id: sel.value })}`));
+
+  const wf = view.querySelector('#weekend-form');
+  if (canEditSettings) {
+    const save = view.querySelector('#weekend-save');
+    wf.addEventListener('change', () => { save.hidden = false; });
+    wf.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      save.disabled = true;
+      try {
+        await put('/settings', { weekend: [...wf.querySelectorAll('input[name=weekend]:checked')].map((i) => i.value).join(',') });
+        toast('Weekend days saved.');
+        await ctx.reload();
+      } catch (err) { toast(err.message, 'error'); save.disabled = false; }
+    });
+  }
+  if (showHolidays) {
+    await holidaysSection(view.querySelector('#holidays'), ctx, canEditSettings,
+      (y) => ctx.go(`calendar${qs({ month: `${y}-${month.slice(5)}`, department_id: dept })}`));
+  }
 }
