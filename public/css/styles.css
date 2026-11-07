@@ -825,3 +825,4 @@ img.emp-avatar:hover { transform: scale(1.9); position: relative; z-index: 2; }.
 .backup-status a { overflow: hidden; text-overflow: ellipsis; }
 .backup-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
 .backup-row input { flex: 1 1 320px; }
+.backup-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }

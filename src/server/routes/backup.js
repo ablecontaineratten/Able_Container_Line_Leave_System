@@ -1,70 +1,14 @@
-// Google Sheet backup: the system copies its data into a Google Sheet (one tab per page) and keeps it up to date.
-// The system signs in to Google as a "service account" (robot). Its JSON key is the Cloudflare secret GOOGLE_SA_KEY.
-// Share the Google Sheet with the robot's email as Editor, paste the link in Settings → General → First-time sync.
-// After that, every change in the system refreshes the sheet automatically; "Sync now" does it by hand.
-import { all, first, run } from '../db.js';
+// Google Sheet backup: the system sends its data to a Google Apps Script web app (google_backup/Code.gs)
+// attached to a Google Sheet, which writes one tab per page. No Google Cloud needed.
+// Settings → General → Google Sheet Backup: paste the Web app link + secret key → First-time sync.
+// After that every change in the system sends the data again (automatic sync); "Sync now" does it by hand.
+import { all, run } from '../db.js';
 import { fail, readJson } from '../http.js';
 import { getSettings } from '../settings.js';
 import { computeSummary, getLeaveTypes, leaveYear } from '../leave.js';
 import { clean, nowIso, todayIn } from '../utils.js';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const LOG_TAB = 'Sync Log';
-
-// ---------------------------------------------------------------- the robot account
-function robot(env) {
-  if (!env.GOOGLE_SA_KEY) return null;
-  try {
-    const k = JSON.parse(env.GOOGLE_SA_KEY);
-    return k.client_email && k.private_key ? k : null;
-  } catch { return null; }
-}
-
-const b64url = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-const textB64 = (s) => b64url(new TextEncoder().encode(s));
-
-let cachedToken = null;           // { token, until } - reused while this worker is alive
-async function googleToken(env) {
-  if (cachedToken && cachedToken.until > Date.now() + 60000) return cachedToken.token;
-  const k = robot(env);
-  if (!k) fail(400, 'The Google robot account is not set up (Cloudflare secret GOOGLE_SA_KEY).');
-  const now = Math.floor(Date.now() / 1000);
-  const unsigned = `${textB64(JSON.stringify({ alg: 'RS256', typ: 'JWT' }))}.${textB64(JSON.stringify({
-    iss: k.client_email, scope: 'https://www.googleapis.com/auth/spreadsheets', aud: 'https://oauth2.googleapis.com/token', iat: now, exp: now + 3600,
-  }))}`;
-  const der = Uint8Array.from(atob(k.private_key.replace(/-----[^-]+-----/g, '').replace(/\s+/g, '')), (ch) => ch.charCodeAt(0));
-  const key = await crypto.subtle.importKey('pkcs8', der, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
-  const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(unsigned));
-  const res = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: `grant_type=${encodeURIComponent('urn:ietf:params:oauth:grant-type:jwt-bearer')}&assertion=${unsigned}.${b64url(sig)}`,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data.access_token) fail(400, `Google sign-in failed: ${data.error_description || data.error || res.status}`);
-  cachedToken = { token: data.access_token, until: Date.now() + (data.expires_in || 3600) * 1000 };
-  return cachedToken.token;
-}
-
-async function sheets(env, path, body, method = body ? 'POST' : 'GET') {
-  const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${path}`, {
-    method, headers: { authorization: `Bearer ${await googleToken(env)}`, 'content-type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const k = robot(env);
-    if (res.status === 403 || res.status === 404) {
-      fail(400, `The system cannot open this Google Sheet. Share it with ${k ? k.client_email : 'the robot email'} as Editor, then try again.`);
-    }
-    fail(400, `Google Sheets: ${(data.error && data.error.message) || res.status}`);
-  }
-  return data;
-}
-
-export const sheetIdFromLink = (link) => {
-  const m = /\/spreadsheets\/d\/([a-zA-Z0-9-_]{20,})/.exec(String(link || ''));
-  return m ? m[1] : (/^[a-zA-Z0-9-_]{30,}$/.test(String(link || '')) ? String(link) : '');
-};
 
 // ---------------------------------------------------------------- backup state (kept in the settings table)
 async function state(env) {
@@ -123,7 +67,7 @@ async function collect(env) {
     'WFH Requests': [['Request', 'Emp No', 'Name', 'Email', 'Department', 'Type', 'From', 'To', 'Dates', 'Days', 'Reason', 'Status', 'Remark', 'Decided by', 'Decided at', 'Requested at'],
       ...work.map((r) => [r.request_no, r.emp_no, r.emp_name, r.emp_email, r.department, r.work_type, r.from_date, r.to_date, r.dates.split(',').join(' '),
         r.days, r.reason, r.status, r.remark, r.decided_by, r.decided_at || '', r.submitted_at])],
-    'Leave Summary': [[`Leave year ${year.start} → ${year.end}`, '', '', ...balanceTypes.flatMap(() => ['', '']), '', '', '', ''],
+    'Leave Summary': [[`Leave year ${year.start} → ${year.end}`],
       ['Emp No', 'Name', 'Department', ...balanceTypes.flatMap((t) => [`${t.name} used`, `${t.name} left`]), 'Total allowed', 'Total used', 'Pending', 'Total left'],
       ...summary],
     'Leave Settings': [['Leave type', 'Days per year', 'Counts in total', 'Half day allowed', 'Short leave', 'Active'],
@@ -138,103 +82,78 @@ async function collect(env) {
   };
 }
 
-// ---------------------------------------------------------------- write everything into the sheet
-async function syncTo(env, sheetId, { format = false } = {}) {
-  const data = await collect(env);
-  const titles = [...Object.keys(data), LOG_TAB];
-  let meta = await sheets(env, `${sheetId}?fields=properties.title,sheets.properties(sheetId,title)`);
-  const have = new Set(meta.sheets.map((s) => s.properties.title));
-  const missing = titles.filter((t) => !have.has(t));
-  if (missing.length) {
-    await sheets(env, `${sheetId}:batchUpdate`, { requests: missing.map((title) => ({ addSheet: { properties: { title } } })) });
-    meta = await sheets(env, `${sheetId}?fields=properties.title,sheets.properties(sheetId,title)`);
-    if (missing.includes(LOG_TAB)) {
-      await sheets(env, `${sheetId}/values:batchUpdate`, { valueInputOption: 'RAW', data: [{ range: `'${LOG_TAB}'!A1`, values: [['Time', 'Type', 'Result', 'Rows']] }] });
-    }
-  }
-  const tabs = Object.keys(data);
-  await sheets(env, `${sheetId}/values:batchClear`, { ranges: tabs.map((t) => `'${t}'`) });
-  await sheets(env, `${sheetId}/values:batchUpdate`, {
-    valueInputOption: 'RAW',
-    data: tabs.map((t) => ({ range: `'${t}'!A1`, values: data[t].map((row) => row.map((v) => (v === null || v === undefined ? '' : v))) })),
-  });
-  if (format) {         // first time: bold blue header row, frozen
-    const ids = new Map(meta.sheets.map((s) => [s.properties.title, s.properties.sheetId]));
-    await sheets(env, `${sheetId}:batchUpdate`, {
-      requests: [...tabs, LOG_TAB].flatMap((t) => {
-        const headerRow = t === 'Leave Summary' ? 1 : 0;
-        return [
-          { updateSheetProperties: { properties: { sheetId: ids.get(t), gridProperties: { frozenRowCount: headerRow + 1 } }, fields: 'gridProperties.frozenRowCount' } },
-          { repeatCell: { range: { sheetId: ids.get(t), startRowIndex: headerRow, endRowIndex: headerRow + 1 },
-            cell: { userEnteredFormat: { textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 } }, backgroundColor: { red: 0.157, green: 0.224, blue: 0.541 } } },
-            fields: 'userEnteredFormat(textFormat,backgroundColor)' } },
-        ];
-      }),
+// ---------------------------------------------------------------- send everything to the Google Apps Script
+// Google answers the POST with a redirect to the result (same as the email service).
+async function sendToSheet(env, appUrl, secret, type) {
+  const tabs = await collect(env);
+  let res;
+  try {
+    res = await fetch(appUrl, {
+      method: 'POST', redirect: 'follow',
+      headers: { 'content-type': 'text/plain;charset=utf-8' },        // keeps Google from asking for a preflight
+      body: JSON.stringify({ secret, type, first: type === 'First-time sync', tabs, headerRows: { 'Leave Summary': 2 } }),
     });
-  }
-  return { title: meta.properties.title, rows: tabs.reduce((n, t) => n + Math.max(data[t].length - 1, 0), 0) };
+  } catch (err) { fail(400, `Could not reach the Google Sheet app: ${err.message}`); }
+  const text = await res.text();
+  let data = null;
+  try { data = JSON.parse(text); } catch { /* an HTML page = wrong link or not shared with "Anyone" */ }
+  if (!data) fail(400, `The Google Sheet app did not answer (${res.status}). Check the link ends with /exec and "Who has access" is "Anyone".`);
+  if (!data.ok) fail(400, `Google Sheet: ${data.error || 'error'}`);
+  return data;           // { ok, rows, sheet, url }
 }
 
-async function log(env, sheetId, type, result, rows) {
+async function runSync(env, appUrl, secret, type) {
   try {
-    await sheets(env, `${sheetId}/values/${encodeURIComponent(`'${LOG_TAB}'!A1`)}:append?valueInputOption=RAW`, { values: [[nowIso(), type, result, rows ?? '']] });
-  } catch { /* the log must never stop a sync */ }
-}
-
-async function runSync(env, sheetId, type) {
-  try {
-    const res = await syncTo(env, sheetId, { format: type === 'First-time sync' });
+    const res = await sendToSheet(env, appUrl, secret, type);
     await setState(env, 'backup_last_sync', nowIso());
     await setState(env, 'backup_status', `OK · ${res.rows} rows`);
-    if (type !== 'Automatic') await log(env, sheetId, type, 'OK', res.rows);
     return res;
   } catch (err) {
     await setState(env, 'backup_status', `FAILED · ${err.message}`);
-    await setState(env, 'backup_last_try', nowIso());
-    await log(env, sheetId, type, `FAILED: ${err.message}`);
     throw err;
   }
 }
 
 // Called after every change in the system (see app.js): refresh the sheet in the background
 export async function autoSync(env) {
-  if (!robot(env)) return;
   const s = await state(env);
-  if (!s.backup_sheet_id) return;
-  await runSync(env, s.backup_sheet_id, 'Automatic').catch((err) => console.error('Backup sync failed:', err.message));
+  if (!s.backup_app_url || !s.backup_secret) return;
+  await runSync(env, s.backup_app_url, s.backup_secret, 'Automatic').catch((err) => console.error('Backup sync failed:', err.message));
 }
 
 // ---------------------------------------------------------------- routes (Settings → General)
 async function status(c) {
   const s = await state(c.env);
-  const k = robot(c.env);
   return {
-    ready: !!k, robot_email: k ? k.client_email : '', sheet_url: s.backup_sheet_url || '', sheet_title: s.backup_sheet_title || '',
-    last_sync: s.backup_last_sync || '', status: s.backup_status || '',
+    connected: !!(s.backup_app_url && s.backup_secret), app_url: s.backup_app_url || '', has_secret: !!s.backup_secret,
+    sheet_url: s.backup_sheet_url || '', sheet_title: s.backup_sheet_title || '', last_sync: s.backup_last_sync || '', status: s.backup_status || '',
   };
 }
 
 async function firstSync(c) {
   const b = await readJson(c.request);
-  const url = clean(b.url);
-  const id = sheetIdFromLink(url);
-  if (!id) fail(400, 'Paste the link of a Google Sheet (it looks like https://docs.google.com/spreadsheets/d/…).');
-  const res = await runSync(c.env, id, 'First-time sync');
-  await setState(c.env, 'backup_sheet_id', id);
-  await setState(c.env, 'backup_sheet_url', `https://docs.google.com/spreadsheets/d/${id}/edit`);
-  await setState(c.env, 'backup_sheet_title', res.title || '');
+  const appUrl = clean(b.app_url);
+  const old = await state(c.env);
+  const secret = clean(b.secret) || old.backup_secret || '';          // empty = keep the saved key
+  if (!/^https:\/\/script\.google(usercontent)?\.com\/.+\/exec$/.test(appUrl)) fail(400, 'Paste the Web app link of the Google Apps Script (it ends with /exec).');
+  if (secret.length < 16) fail(400, 'Paste the secret key from the Google Apps Script (run "setup" or "showSecret").');
+  const res = await runSync(c.env, appUrl, secret, 'First-time sync');
+  await setState(c.env, 'backup_app_url', appUrl);
+  await setState(c.env, 'backup_secret', secret);
+  await setState(c.env, 'backup_sheet_url', res.url || '');
+  await setState(c.env, 'backup_sheet_title', res.sheet || '');
   return { ok: true, rows: res.rows, ...(await status(c)) };
 }
 
 async function syncNow(c) {
   const s = await state(c.env);
-  if (!s.backup_sheet_id) fail(400, 'No Google Sheet yet. Paste a link and press First-time sync.');
-  const res = await runSync(c.env, s.backup_sheet_id, 'Manual sync');
+  if (!s.backup_app_url || !s.backup_secret) fail(400, 'Not connected yet. Paste the link and key and press First-time sync.');
+  const res = await runSync(c.env, s.backup_app_url, s.backup_secret, 'Manual sync');
   return { ok: true, rows: res.rows, ...(await status(c)) };
 }
 
 async function stop(c) {
-  for (const k of ['backup_sheet_id', 'backup_sheet_url', 'backup_sheet_title', 'backup_status', 'backup_last_sync']) await setState(c.env, k, '');
+  for (const k of ['backup_app_url', 'backup_secret', 'backup_sheet_url', 'backup_sheet_title', 'backup_status', 'backup_last_sync']) await setState(c.env, k, '');
   return { ok: true, ...(await status(c)) };
 }
 

@@ -76,30 +76,32 @@ async function backupBox(box, canEdit) {
   let b;
   try { b = await get('/backup'); } catch (err) { box.innerHTML = `<p class="error">${esc(err.message)}</p>`; return; }
   const when = (iso) => (iso ? new Date(iso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '-');
-  const ok = /^OK/.test(b.status);
   const draw = () => {
+    const ok = /^OK/.test(b.status);
     box.innerHTML = `<div class="card-head"><h2>📊 Google Sheet Backup</h2>
-        ${b.sheet_url ? `<span class="badge ${ok ? 'badge-approved' : 'badge-rejected'}">${ok ? 'Syncing' : 'Last sync failed'}</span>` : '<span class="badge badge-cancelled">Not connected</span>'}</div>
-      ${!b.ready ? `<p class="notice">The Google robot account is not set up yet (Cloudflare secret <code>GOOGLE_SA_KEY</code>). Ask the system admin.</p>` : `
-      <p class="muted small">Every page of the system is copied into the Google Sheet (one tab each: Employees, Departments, Login Accounts, Leave Requests,
+        ${b.connected ? `<span class="badge ${ok ? 'badge-approved' : 'badge-rejected'}">${ok ? 'Syncing' : 'Last sync failed'}</span>` : '<span class="badge badge-cancelled">Not connected</span>'}</div>
+      <p class="muted small">Every page of the system is copied into a Google Sheet (one tab each: Employees, Departments, Login Accounts, Leave Requests,
         WFH Requests, Leave Summary, Leave Settings, Holidays, Settings). After the first sync the sheet is updated <b>automatically after every change</b>.
         Passwords are never copied.</p>
       <ol class="backup-steps small">
-        <li>Open your Google Sheet → <b>Share</b> → add <code class="robot">${esc(b.robot_email)}</code>
-          <button class="btn btn-small" type="button" id="copy-robot">Copy</button> as <b>Editor</b>.</li>
-        <li>Paste the sheet link below and press <b>First-time sync</b>.</li>
+        <li>Create a Google Sheet → <b>Extensions → Apps Script</b> → paste <code>google_backup/Code.gs</code> → run <b>setup</b> (it shows the secret key).</li>
+        <li><b>Deploy → New deployment → Web app</b> (Execute as: Me · Who has access: Anyone) → copy the Web app link.</li>
+        <li>Paste the link and the secret key below → <b>First-time sync</b>.</li>
       </ol>
-      ${b.sheet_url ? `<div class="backup-status">
+      ${b.connected ? `<div class="backup-status">
           <div><span class="muted small">Connected sheet</span><a href="${esc(b.sheet_url)}" target="_blank" rel="noopener"><b>${esc(b.sheet_title || 'Open the Google Sheet')}</b> ↗</a></div>
           <div><span class="muted small">Last synced</span><b>${esc(when(b.last_sync))}</b></div>
           <div><span class="muted small">Result</span><b class="${ok ? '' : 'error'}">${esc(b.status || '-')}</b></div>
         </div>` : ''}
-      ${canEdit ? `<div class="backup-row">
-          <input type="url" id="sheet-url" placeholder="https://docs.google.com/spreadsheets/d/…" value="${esc(b.sheet_url)}" aria-label="Google Sheet link">
-          <button class="btn btn-primary" type="button" id="first-sync">First-time sync</button>
+      ${canEdit ? `<div class="backup-fields">
+          <label class="field"><span>Google Sheet app link (Web app URL)</span>
+            <input type="url" id="app-url" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(b.app_url)}"></label>
+          <label class="field"><span>Secret key</span>
+            <input type="password" id="app-secret" autocomplete="off" placeholder="${b.has_secret ? '•••••••• (saved - leave empty to keep)' : 'From setup in the Apps Script'}"></label>
         </div>
-        ${b.sheet_url ? `<div class="backup-row"><button class="btn" type="button" id="sync-now">⟳ Sync now</button>
-          <button class="btn btn-danger-outline" type="button" id="stop-sync">Stop syncing</button></div>` : ''}` : ''}`}`;
+        <div class="backup-row"><button class="btn btn-primary" type="button" id="first-sync">First-time sync</button>
+        ${b.connected ? `<button class="btn" type="button" id="sync-now">⟳ Sync now</button>
+          <button class="btn btn-danger-outline" type="button" id="stop-sync">Stop syncing</button>` : ''}</div>` : ''}`;
     const act = (id, label, fn) => {
       const btn = $(id, box);
       if (!btn) return;
@@ -110,9 +112,7 @@ async function backupBox(box, canEdit) {
         draw();
       });
     };
-    const copy = $('#copy-robot', box);
-    if (copy) copy.addEventListener('click', () => { navigator.clipboard.writeText(b.robot_email).then(() => toast('Robot email copied.')); });
-    act('#first-sync', 'Syncing…', () => post('/backup/first-sync', { url: $('#sheet-url', box).value.trim() }));
+    act('#first-sync', 'Syncing…', () => post('/backup/first-sync', { app_url: $('#app-url', box).value.trim(), secret: $('#app-secret', box).value.trim() }));
     act('#sync-now', 'Syncing…', () => post('/backup/sync'));
     const stopBtn = $('#stop-sync', box);
     if (stopBtn) stopBtn.addEventListener('click', async () => {
