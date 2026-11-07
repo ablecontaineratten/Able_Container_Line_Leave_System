@@ -403,12 +403,35 @@ async function showBalance() {
   const m = b.shortMonth;
   if (m) items.push({ key: 'short', title: 'Short Leave', big: Math.max(m.limit - m.used - m.pending, 0), sub: `/ ${m.limit}`, pct: pct(m.used + m.pending, m.limit) });
 
+  // Work From Home (not leave): left in this week / month / year when there is a WFH limit, else days this month
+  const lim = d.wfh_limit || {};
+  const today = d.today;
+  const periodOf = (x) => (lim.period === 'year' ? (x.slice(5) >= (lim.year_start || '01-01') ? x.slice(0, 4) : String(Number(x.slice(0, 4)) - 1))
+    : lim.period === 'week' ? addDays(x, -((toUtc(x).getUTCDay() + 6) % 7)) : x.slice(0, 7));
+  const wfhDays = (statuses) => (d.work || []).filter((w) => w.work_type === 'Work From Home' && statuses.includes(w.status)).flatMap((w) => w.dates.split(','));
+  const yearStart = b.year.start;
+  const yearEnd = b.year.end;
+  d.taken.wfh = [...new Set(wfhDays(['Approved']).filter((x) => x >= yearStart && x < yearEnd))].sort().reverse();
+  const nowKey = periodOf(today);
+  const PER = { week: 'this week', month: 'this month', year: 'this year' };
+  if (lim.period && lim.days) {
+    const used = wfhDays(['Approved', 'Pending']).filter((x) => periodOf(x) === nowKey).length;
+    items.push({ key: 'wfh', title: `Work From Home (${PER[lim.period]})`, big: Math.max(lim.days - used, 0), sub: `/ ${lim.days}`, pct: pct(used, lim.days) });
+  } else {
+    items.push({ key: 'wfh', title: 'Work From Home', big: wfhDays(['Approved']).filter((x) => x.slice(0, 7) === today.slice(0, 7)).length, sub: 'this month', pct: null });
+  }
+  // Late arrivals (inform only): days this month; tap = every late day this year
+  const lateDays = [...new Set((d.late || []).map((l) => l.date))];
+  d.taken.late = lateDays.filter((x) => x >= yearStart && x < yearEnd).sort().reverse();
+  items.push({ key: 'late', title: 'Late Arrivals', big: lateDays.filter((x) => x.slice(0, 7) === today.slice(0, 7)).length, sub: 'this month', pct: null });
+
   $('#bal-body').innerHTML = `<div class="bal-list">${items.map((it, i) => `
       <button class="bal-item" type="button" data-key="${it.key}" data-title="${esc(it.title)}" style="--i:${i}">
         <span class="bal-row"><b>${esc(it.title)}</b><span><strong>${esc(it.big)}</strong> ${esc(it.sub)}</span><i>›</i></span>
         ${it.pct === null ? '' : `<span class="meter"><span style="width:${it.pct}%" class="${it.pct >= 100 ? 'full' : it.pct >= 75 ? 'high' : ''}"></span></span>`}
       </button>`).join('')}</div>`;
-  $$('.bal-item').forEach((btn) => btn.addEventListener('click', () => showTaken(btn.dataset.title, d.taken[btn.dataset.key] || [])));
+  const LIST_TITLE = { wfh: 'Work From Home days (this year)', late: 'Late arrival days (this year)' };
+  $$('.bal-item').forEach((btn) => btn.addEventListener('click', () => showTaken(LIST_TITLE[btn.dataset.key] || btn.dataset.title, d.taken[btn.dataset.key] || [])));
 }
 
 // The dates taken for one balance item, as dd/mm/yyyy

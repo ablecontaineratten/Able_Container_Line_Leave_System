@@ -137,7 +137,8 @@ async function summary(c) {
     portalWorkRows(c.env, e.id),                 // Work From Home requests (not leave)
     portalLateRows(c.env, e.id),                 // late arrival messages (inform only)
   ]);
-  return { employee: publicEmployee(e), today, balance, requests, work, late, taken: takenDates(requests, types, settings, holidays, balance.year) };
+  const wfh_limit = { period: settings.wfh_limit_period || '', days: Number(settings.wfh_limit_days) || 0, year_start: settings.year_start };
+  return { employee: publicEmployee(e), today, balance, requests, work, late, wfh_limit, taken: takenDates(requests, types, settings, holidays, balance.year) };
 }
 
 // Approved leave days of this leave year, one date per working day, newest first:
