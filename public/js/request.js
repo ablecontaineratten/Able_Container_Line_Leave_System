@@ -417,6 +417,8 @@ async function showBalance() {
   if (lim.period && lim.days) {
     const used = wfhDays(['Approved', 'Pending']).filter((x) => periodOf(x) === nowKey).length;
     items.push({ key: 'wfh', title: `Work From Home (${PER[lim.period]})`, big: Math.max(lim.days - used, 0), sub: `/ ${lim.days}`, pct: pct(used, lim.days) });
+  } else if (lim.period) {               // a period but no limit: just the approved days in it
+    items.push({ key: 'wfh', title: 'Work From Home', big: wfhDays(['Approved']).filter((x) => periodOf(x) === nowKey).length, sub: PER[lim.period], pct: null });
   } else {
     items.push({ key: 'wfh', title: 'Work From Home', big: wfhDays(['Approved']).filter((x) => x.slice(0, 7) === today.slice(0, 7)).length, sub: 'this month', pct: null });
   }

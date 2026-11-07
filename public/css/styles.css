@@ -885,3 +885,5 @@ th.late-col, td.late-col { background: #fff8ec; }
 /* Chart: thin lines between the leave types */
 .lc tr.lc-start:not(:first-child) th, .lc tr.lc-start:not(:first-child) td { border-top: 1px solid color-mix(in srgb, var(--brand) 45%, #fff); }
 .lc tr.lc-late.lc-start:not(:first-child) th, .lc tr.lc-late.lc-start:not(:first-child) td { border-top-color: #f0b46a; }
+.wfh-nolimit { margin: 10px 0 14px; }
+.wfh-nolimit small { display: inline; margin-left: 4px; }

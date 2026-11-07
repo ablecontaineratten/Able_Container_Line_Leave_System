@@ -139,11 +139,15 @@ async function wfhTab(body, ctx) {
   body.innerHTML = `<form class="card" id="wfh-form">
       <h2>WFH limit</h2>
       <p class="muted small">How many <b>Work From Home</b> days can one employee have? Approved and pending WFH days are counted.
-        A request that goes over the limit is stopped and the employee sees why. The Leave/Shift Chart groups WFH days by the same period.</p>
+        A request that goes over the limit is stopped and the employee sees why. The Chart and Summary group WFH days by the same period.</p>
       <div class="half-options">${PERIODS.map(([v, label, help]) => `<label class="half-option"><input type="radio" name="period" value="${v}" ${(s.wfh_limit_period || '') === v ? 'checked' : ''} ${canEdit ? '' : 'disabled'}>
         <span><b>${label}</b><small>${help}</small></span></label>`).join('')}</div>
-      <label class="field wfh-days" id="wfh-days-box"><span>WFH days allowed <b id="wfh-per"></b></span>
-        <input type="number" name="days" min="1" max="366" value="${esc(s.wfh_limit_days || '')}" ${canEdit ? '' : 'disabled'} placeholder="e.g. 2"></label>
+      <div id="wfh-days-box">
+        <label class="field wfh-days"><span>WFH days allowed <b id="wfh-per"></b></span>
+          <input type="number" name="days" min="1" max="366" value="${esc(s.wfh_limit_days || '')}" ${canEdit ? '' : 'disabled'} placeholder="e.g. 2"></label>
+        <label class="check wfh-nolimit"><input type="checkbox" name="nolimit" ${s.wfh_limit_period && !s.wfh_limit_days ? 'checked' : ''} ${canEdit ? '' : 'disabled'}>
+          <span>No limit <small>(count and group WFH days by this period, but do not stop requests)</small></span></label>
+      </div>
       <p class="form-error" hidden></p>
       ${canEdit ? '<button class="btn btn-primary" type="submit">Save</button>' : '<p class="muted small">Only a Super admin can change the WFH settings.</p>'}
     </form>`;
@@ -152,6 +156,7 @@ async function wfhTab(body, ctx) {
     const p = $('input[name=period]:checked', form).value;
     $('#wfh-days-box', form).hidden = !p;
     $('#wfh-per', form).textContent = p ? `(per ${p})` : '';
+    form.days.disabled = !canEdit || form.nolimit.checked;
   };
   form.addEventListener('change', sync);
   sync();
@@ -162,7 +167,7 @@ async function wfhTab(body, ctx) {
     err.hidden = true;
     const period = $('input[name=period]:checked', form).value;
     try {
-      await put('/settings', { wfh_limit_period: period, wfh_limit_days: period ? form.days.value.trim() : '' });
+      await put('/settings', { wfh_limit_period: period, wfh_limit_days: period && !form.nolimit.checked ? form.days.value.trim() : '' });
       toast('WFH settings saved.');
       await ctx.reload();
     } catch (ex) { err.textContent = ex.message; err.hidden = false; }
