@@ -1,6 +1,6 @@
 // Leave calendar: who is on leave each day of the month
-import { get, put, qs } from '../api.js';
-import { addDays, esc, fmtDate, monthLabel, pageHead, toast, toUtc } from '../ui.js';
+import { get, post, put, qs } from '../api.js';
+import { addDays, confirmDialog, esc, fmtDate, monthLabel, pageHead, toast, toUtc } from '../ui.js';
 import { DAYS, holidaysSection } from './settings.js';
 import { workEmoji, workKey } from '../components/work.js';
 
@@ -21,11 +21,18 @@ export default async function render(view, ctx) {
   const weekend = new Set(String(settings.weekend || '').split(',').filter((x) => x !== '').map(Number));
   const holidays = new Map(data.holidays.map((h) => [h.date, h.name]));
   const onDay = (d) => data.rows.filter((r) => r.from_date <= d && r.to_date >= d);
-  const leaveChip = (r) => `<span class="chip chip-${r.status.toLowerCase()}" title="${esc(`${r.emp_name} · ${r.leave_type} · ${r.day_type} · ${r.status}`)}">${esc(r.emp_name)}${r.day_type === 'Half Day' ? ' ½' : r.day_type === 'Short Leave' ? ' ⏱' : ''}</span>`;
-  // Work From Home / Onsite: shown on the day, but it is not leave
+  // Edit mode (Edit button): a ✕ on each date that can be deleted
+  const editing = ctx.query.get('edit') === '1';
+  const canEditWork = !!(me.perms['approve.decide'] || me.perms['requests.manage']);
+  const canEditLeave = !!me.perms['summary.edit'];
+  const x = (attrs) => (editing ? `<button type="button" class="chip-x" title="Delete this date" aria-label="Delete this date" ${attrs}>✕</button>` : '');
+  const leaveChip = (r, d) => `<span class="chip chip-${r.status.toLowerCase()}" title="${esc(`${r.emp_name} · ${r.leave_type} · ${r.day_type} · ${r.status}`)}">${esc(r.emp_name)}${r.day_type === 'Half Day' ? ' ½' : r.day_type === 'Short Leave' ? ' ⏱' : ''}${
+    canEditLeave && r.status === 'Approved' ? x(`data-kind="leave" data-emp="${r.employee_id}" data-date="${d}" data-type="${esc(r.day_type === 'Half Day' ? 'Half Day' : r.leave_type)}" data-half="${esc(r.leave_type)}" data-name="${esc(r.emp_name)}" data-what="${esc(r.leave_type)}"`) : ''}</span>`;
+  // Work From Home: shown on the day, but it is not leave
   const work = (data.work || []).map((w) => ({ ...w, days: new Set(w.dates.split(',')), kind: 'work' }));
-  const workChip = (w) => `<span class="chip chip-work ${workKey(w.work_type)} ${w.status === 'Pending' ? 'chip-pending' : ''}" title="${esc(`${w.emp_name} · ${w.work_type}${w.location ? ` (${w.location})` : ''} · ${w.status} · not leave`)}">${workEmoji(w.work_type)} ${esc(w.emp_name)}</span>`;
-  const chip = (r) => (r.kind === 'work' ? workChip(r) : leaveChip(r));
+  const workChip = (w, d) => `<span class="chip chip-work ${workKey(w.work_type)} ${w.status === 'Pending' ? 'chip-pending' : ''}" title="${esc(`${w.emp_name} · ${w.work_type}${w.location ? ` (${w.location})` : ''} · ${w.status} · not leave`)}">${workEmoji(w.work_type)} ${esc(w.emp_name)}${
+    canEditWork ? x(`data-kind="work" data-id="${w.id}" data-date="${d}" data-name="${esc(w.emp_name)}" data-what="WFH"`) : ''}</span>`;
+  const chip = (r, d) => (r.kind === 'work' ? workChip(r, d) : leaveChip(r, d));
   const onDayAll = (d) => [...onDay(d), ...work.filter((w) => w.days.has(d))];
 
   // grid starts on Monday
@@ -40,9 +47,9 @@ export default async function render(view, ctx) {
     const off = weekend.has(dow) || holidays.has(d);
     cells.push(`<div class="cal-cell ${off ? 'off' : ''} ${d === today ? 'today' : ''}">
       <div class="cal-date">${Number(d.slice(8))}${holidays.has(d) ? `<span class="hol">${esc(holidays.get(d))}</span>` : ''}</div>
-      ${list.map(chip).join('')}</div>`);
+      ${list.map((r) => chip(r, d)).join('')}</div>`);
     if (list.length || holidays.has(d)) {
-      agenda.push(`<li><b>${esc(fmtDate(d))}</b>${holidays.has(d) ? ` <span class="muted">· ${esc(holidays.get(d))}</span>` : ''}<div>${list.map(chip).join(' ')}</div></li>`);
+      agenda.push(`<li><b>${esc(fmtDate(d))}</b>${holidays.has(d) ? ` <span class="muted">· ${esc(holidays.get(d))}</span>` : ''}<div>${list.map((r) => chip(r, d)).join(' ')}</div></li>`);
     }
   }
 
@@ -63,16 +70,32 @@ export default async function render(view, ctx) {
         <a class="btn btn-small" href="#/calendar${qs({ month: shiftMonth(month, 1), department_id: dept })}" aria-label="Next month">›</a>
         <a class="btn btn-small" href="#/calendar${qs({ department_id: dept })}">Today</a>
         <div class="spacer"></div>
+        ${canEditWork || canEditLeave ? `<a class="btn btn-small ${editing ? 'btn-primary' : ''}" id="cal-edit" href="#/calendar${qs({ month, department_id: dept, edit: editing ? '' : '1' })}">${editing ? '✓ Done' : '✎ Edit'}</a>` : ''}
         ${deptOptions.length > 1 ? `<select id="dept" aria-label="Department"><option value="">All departments</option>${deptOptions.map((d) =>
           `<option value="${d.id}" ${String(d.id) === dept ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}</select>` : ''}
       </div>
+      ${editing ? '<p class="notice cal-edit-note">Edit mode: click ✕ on a date to delete it. Approved leave and WFH dates can be deleted. Click <b>✓ Done</b> when finished.</p>' : ''}
       <div class="cal-grid">${DAY_NAMES.map((n) => `<div class="cal-head">${n}</div>`).join('')}${cells.join('')}</div>
       <p class="cal-legend muted small">🏠 = Work From Home (shown for information, <b>not leave</b>). Striped = waiting for approval.</p>
       <ul class="cal-agenda">${agenda.join('') || '<li class="muted">No leave this month.</li>'}</ul>
     </div>
     ${showHolidays ? '<div id="holidays"></div>' : ''}`;
   const sel = view.querySelector('#dept');
-  if (sel) sel.addEventListener('change', () => ctx.go(`calendar${qs({ month, department_id: sel.value })}`));
+  if (sel) sel.addEventListener('change', () => ctx.go(`calendar${qs({ month, department_id: sel.value, edit: editing ? '1' : '' })}`));
+
+  // Edit mode: delete one date (WFH: from the WFH request; leave: the same as removing it in the Chart)
+  view.querySelectorAll('.chip-x').forEach((b) => b.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const k = b.dataset;
+    if (!await confirmDialog({ title: 'Delete date', message: `Delete <b>${esc(k.what)}</b> of <b>${esc(k.name)}</b> on <b>${esc(fmtDate(k.date))}</b>?`, confirmText: 'Delete', danger: true })) return;
+    try {
+      if (k.kind === 'work') await post('/work/remove-date', { id: Number(k.id), date: k.date });
+      else await post('/summary/remove', { employee_id: Number(k.emp), type: k.type, half_type: k.half, dates: [k.date] });
+      toast('Date deleted.');
+      ctx.refreshBadge && ctx.refreshBadge();
+      render(view, ctx);
+    } catch (err) { toast(err.message, 'error'); }
+  }));
 
   const wf = view.querySelector('#weekend-form');
   if (canEditSettings) {

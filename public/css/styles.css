@@ -856,3 +856,9 @@ th.wfh-col, td.wfh-col { background: color-mix(in srgb, var(--brand) 5%, transpa
 .lc .lc-late.lc-start th, .lc .lc-late.lc-start td { border-top: 2px solid #e67700; }
 .late-num { color: #b35c00; }
 th.late-col, td.late-col { background: #fff8ec; }
+
+/* ---------- Calendar edit mode: ✕ on each date */
+.chip { position: relative; }
+.chip-x { margin-left: 4px; padding: 0 5px; border: 0; border-radius: 50%; background: var(--accent); color: #fff; font-size: .68rem; font-weight: 800; line-height: 1.5; cursor: pointer; vertical-align: middle; }
+.chip-x:hover { filter: brightness(1.15); }
+.cal-edit-note { margin: 0 0 12px; border-left: 4px solid var(--accent); }

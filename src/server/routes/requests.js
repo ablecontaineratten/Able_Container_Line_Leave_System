@@ -153,7 +153,7 @@ async function calendar(c) {
   const dept = Number(c.query.get('department_id'));
   if (dept) { where.push('department_id = ?'); args.push(dept); }
   const [rows, holidays, work] = await Promise.all([
-    all(env, `SELECT id, request_no, emp_name, emp_no, department, leave_type, day_type, from_date, to_date, out_time, return_time, status
+    all(env, `SELECT id, request_no, employee_id, emp_name, emp_no, department, leave_type, day_type, from_date, to_date, out_time, return_time, status
               FROM leave_requests WHERE ${where.join(' AND ')} ORDER BY emp_name`, ...args),
     all(env, 'SELECT date, name FROM holidays WHERE date >= ? AND date <= ? ORDER BY date', start, end),
     workInMonth(env, me, start, end, dept),                       // Work From Home / Onsite (shown, not counted as leave)

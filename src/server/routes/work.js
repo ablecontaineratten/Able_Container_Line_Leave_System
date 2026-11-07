@@ -251,6 +251,29 @@ async function listWork(c) {
   return { rows, canDecide: can(me, 'approve.decide') || can(me, 'requests.manage'), canCancel: can(me, 'requests.cancel') || can(me, 'requests.manage') };
 }
 
+// Calendar → Edit: remove one date of a WFH request (the last date = the request is cancelled)
+async function removeWorkDate(c) {
+  const { env, me } = c;
+  if (!(can(me, 'approve.decide') || can(me, 'requests.manage'))) fail(403, 'You cannot change WFH requests.');
+  const b = await readJson(c.request);
+  const date = clean(b.date);
+  const r = await first(env, 'SELECT * FROM work_requests WHERE id = ?', Number(b.id));
+  if (!r || !isDate(date)) fail(404, 'Request not found.');
+  if (!me.isSuper && !inScope(me, r.department_id)) fail(403, 'Not in your department(s).');
+  const left = r.dates.split(',').filter((d) => d && d !== date);
+  if (left.length === r.dates.split(',').length) fail(400, 'This date is not in the request.');
+  const note = `${fmtDate(date)} removed in the Calendar by ${me.name}`;
+  if (!left.length) {
+    await run(env, `UPDATE work_requests SET status = 'Cancelled', decided_by = ?, decided_at = ?,
+      notes = CASE WHEN notes = '' THEN ? ELSE notes || ' | ' || ? END WHERE id = ?`, me.name, nowIso(), note, note, r.id);
+    return { ok: true, cancelled: true };
+  }
+  await run(env, `UPDATE work_requests SET dates = ?, days = ?, from_date = ?, to_date = ?, mode = CASE WHEN ? = 1 THEN 'one' ELSE 'dates' END,
+    notes = CASE WHEN notes = '' THEN ? ELSE notes || ' | ' || ? END WHERE id = ?`,
+  left.join(','), left.length, left[0], left[left.length - 1], left.length, note, note, r.id);
+  return { ok: true, cancelled: false };
+}
+
 async function decideWorkRoute(c) {
   const b = await readJson(c.request);
   return decideWork(c, { me: c.me, name: c.me.name }, b.ids, clean(b.status), b.remark);
@@ -344,6 +367,7 @@ export const portalWorkRows = (env, employeeId) => all(env,
 export default [
   { method: 'GET', path: '/api/work', handler: listWork },
   { method: 'POST', path: '/api/work/decide', handler: decideWorkRoute },
+  { method: 'POST', path: '/api/work/remove-date', handler: removeWorkDate },
   { method: 'GET', path: '/api/email/work-decide', auth: false, handler: emailWorkDecide },
   { method: 'POST', path: '/api/email/work-decide', auth: false, handler: emailWorkDecide },
   { method: 'POST', path: '/api/portal/work', auth: false, handler: portalSubmit },
