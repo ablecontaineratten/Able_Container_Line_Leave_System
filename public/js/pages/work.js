@@ -1,7 +1,7 @@
 // Work From Home / Onsite requests (not leave): filter, approve / reject / cancel, export
 import { get, qs } from '../api.js';
 import { $, downloadCsv, esc, fmtDateTime, pageHead, statusBadge, tableHtml, wireSelection } from '../ui.js';
-import { decideWork, WORK_TYPES, workTag, workWhen } from '../components/work.js';
+import { decideWork, workTag, workWhen } from '../components/work.js';
 
 const STATUSES = ['Pending', 'Approved', 'Rejected', 'Cancelled'];
 
@@ -35,11 +35,10 @@ export default async function render(view, ctx) {
     `<option value="${esc(v)}" ${String(v) === String(value) ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></label>`;
   const selectable = data.canDecide && rows.some((r) => acts(r).includes('approve'));
 
-  view.innerHTML = `${pageHead('Work From Home / Onsite', 'Requests to work from home or at a site. <b>Not leave</b> - no leave balance is used.',
+  view.innerHTML = `${pageHead('WFH Request', 'Requests to work from home. <b>Not leave</b> - no leave balance is used. No request = working at the office.',
     '<button class="btn" id="export">Export CSV</button>')}
     <div class="filters card work-filters">
       ${sel('f-status', 'Status', [['', 'All'], ...STATUSES.map((s) => [s, s])], filters.status)}
-      ${sel('f-type', 'Work type', [['', 'All'], ...WORK_TYPES.map((t) => [t, t])], filters.type)}
       ${deptOptions.length > 1 ? sel('f-dept', 'Department', [['', 'All departments'], ...deptOptions.map((d) => [d.id, d.name])], filters.department_id) : ''}
       <label class="field"><span>Month</span><input type="month" id="f-month" value="${esc(filters.month)}"></label>
     </div>
@@ -51,10 +50,10 @@ export default async function render(view, ctx) {
   const refresh = () => { ctx.refreshBadge(); render(view, ctx); };
   // status is always in the link, so "All" (empty) is kept and does not fall back to Pending
   const go = () => {
-    const rest = qs({ type: $('#f-type').value, department_id: $('#f-dept') ? $('#f-dept').value : '', month: $('#f-month').value });
+    const rest = qs({ department_id: $('#f-dept') ? $('#f-dept').value : '', month: $('#f-month').value });
     ctx.go(`work?status=${encodeURIComponent($('#f-status').value)}${rest ? `&${rest.slice(1)}` : ''}`);
   };
-  ['#f-status', '#f-type', '#f-dept', '#f-month'].forEach((s) => { const el = $(s); if (el) el.addEventListener('change', go); });
+  ['#f-status', '#f-dept', '#f-month'].forEach((s) => { const el = $(s); if (el) el.addEventListener('change', go); });
 
   const listEl = $('#list');
   listEl.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', async () => {
@@ -67,7 +66,7 @@ export default async function render(view, ctx) {
       if (chosen.length && await decideWork(b.dataset.bulk, chosen, ctx)) refresh();
     }));
   }
-  $('#export').addEventListener('click', () => downloadCsv('work-from-home-onsite.csv',
+  $('#export').addEventListener('click', () => downloadCsv('wfh-requests.csv',
     ['request_no', 'emp_no', 'name', 'department', 'work_type', 'location', 'dates', 'days', 'reason', 'status', 'decided_by', 'remark', 'submitted_at'],
     rows.map((r) => [r.request_no, r.emp_no, r.emp_name, r.department, r.work_type, r.location, r.dates.split(',').join(' '), r.days, r.reason, r.status, r.decided_by, r.remark, r.submitted_at])));
 }

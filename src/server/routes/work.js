@@ -45,7 +45,7 @@ async function createWorkRequest(c, employee, input) {
   if (employee.status !== 'Active') fail(400, 'This employee is marked Inactive.');
 
   const workType = WORK_TYPES.find((t) => t.toLowerCase() === lower(input.work_type));
-  if (!workType) fail(400, 'Choose Work From Home or Onsite.');
+  if (workType !== 'Work From Home') fail(400, 'Only Work From Home can be requested (no request = working at the office).');
   const location = workType === 'Onsite' ? clean(input.location).slice(0, 120) : '';
   const reason = clean(input.reason).slice(0, 1000);
 
@@ -121,7 +121,7 @@ async function notifyNewWork(env, origin, settings, r) {
   const when = workWhen(r);
   const log = [];
   log.push(`Heads: ${await notify(env, 'user', approvers.map((a) => a.id), {
-    title: `New ${r.work_type} request`, body: `${r.emp_name} · ${typeText(r)} · ${when}`, url: '/#/work',
+    title: `New ${r.work_type} request`, body: `${r.emp_name} · ${when}`, url: '/#/work',
   }, baseUrl)}`);
   for (const ap of approvers.filter((a) => isEmail(a.email) && emailEnabled(env))) {
     const link = (a) => `${baseUrl}/api/email/work-decide?n=${encodeURIComponent(r.request_no)}&t=${r.token}&a=${a}&w=${encodeURIComponent(ap.email)}`;

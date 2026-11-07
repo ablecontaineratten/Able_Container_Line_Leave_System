@@ -25,11 +25,9 @@ export default async function render(view, ctx) {
       <a class="dash-stat warn" href="#/approvals"><b>${pending.length}</b><span>Pending</span></a>
       <a class="dash-stat ok" href="#/requests?status=Approved"><b>${approved.length ? esc(fmtDate(String(approved[0].decided_at || '').slice(0, 10))) : '-'}</b><span>Last approval</span></a>
       <a class="dash-stat" href="#/calendar"><b>${(d.onLeaveToday || []).length}</b><span>On leave today</span></a>
-      ${d.workPendingCount ? `<a class="dash-stat warn" href="#/work?status=Pending"><b>${d.workPendingCount}</b><span>WFH / Onsite waiting</span></a>` : ''}
+      ${d.workPendingCount ? `<a class="dash-stat warn" href="#/work?status=Pending"><b>${d.workPendingCount}</b><span>WFH requests waiting</span></a>` : ''}
       ${d.workToday ? `<a class="dash-stat wfh" href="#/calendar" title="${esc(d.workToday.filter((w) => w.work_type !== 'Onsite').map((w) => w.emp_name).join(', '))}">
-        <b>${d.workToday.filter((w) => w.work_type !== 'Onsite').length}</b><span>🏠 Work from home today</span></a>
-      <a class="dash-stat onsite" href="#/calendar" title="${esc(d.workToday.filter((w) => w.work_type === 'Onsite').map((w) => `${w.emp_name}${w.location ? ` (${w.location})` : ''}`).join(', '))}">
-        <b>${d.workToday.filter((w) => w.work_type === 'Onsite').length}</b><span>📍 Onsite today</span></a>` : ''}
+        <b>${d.workToday.filter((w) => w.work_type !== 'Onsite').length}</b><span>🏠 Work from home today</span></a>` : ''}
     </div>
 
     <div class="dash-grid">

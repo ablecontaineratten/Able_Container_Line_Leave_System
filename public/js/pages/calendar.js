@@ -58,7 +58,7 @@ export default async function render(view, ctx) {
           `<option value="${d.id}" ${String(d.id) === dept ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}</select>` : ''}
       </div>
       <div class="cal-grid">${DAY_NAMES.map((n) => `<div class="cal-head">${n}</div>`).join('')}${cells.join('')}</div>
-      <p class="cal-legend muted small">🏠 Work From Home · 📍 Onsite - shown for information, <b>not leave</b>. Striped = waiting for approval.</p>
+      <p class="cal-legend muted small">🏠 = Work From Home (shown for information, <b>not leave</b>). Striped = waiting for approval.</p>
       <ul class="cal-agenda">${agenda.join('') || '<li class="muted">No leave this month.</li>'}</ul>
     </div>`;
   const sel = view.querySelector('#dept');

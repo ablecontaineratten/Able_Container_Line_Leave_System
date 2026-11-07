@@ -29,8 +29,9 @@ const ICON = {
 // Work From Home / Onsite requests (a way of working, not leave)
 const WORK = {
   'Work From Home': { key: 'wfh', icon: ICON.home, short: 'Work From Home', help: 'Work from home on some days (not leave)' },
-  Onsite: { key: 'onsite', icon: ICON.pin, short: 'Onsite', help: 'Work at a site / client location (not leave)' },
 };
+WORK.Onsite = { key: 'onsite', icon: ICON.pin, short: 'Onsite' };   // only for old records; not offered any more
+const NEW_CHOICES = ['Work From Home'];                              // no request = working at the office
 // "06 Nov 2026", "06 Nov 2026 → 09 Nov 2026" (days in a row) or "06 Nov 2026, 10 Nov 2026" (separate dates)
 const workWhen = (w) => {
   const list = String(w.dates || '').split(',').filter(Boolean);
@@ -181,7 +182,7 @@ function openNewRequest() {
       <div class="new-choices">
         <button type="button" class="new-choice leave" data-new="leave"><span class="nc-icon">${ICON.cal}</span>
           <span><b>Leave</b><small>Annual, casual, half day or short leave</small></span></button>
-        ${Object.entries(WORK).map(([type, w]) => `<button type="button" class="new-choice ${w.key}" data-new="${esc(type)}"><span class="nc-icon">${w.icon}</span>
+        ${NEW_CHOICES.map((type) => [type, WORK[type]]).map(([type, w]) => `<button type="button" class="new-choice ${w.key}" data-new="${esc(type)}"><span class="nc-icon">${w.icon}</span>
           <span><b>${esc(w.short)}</b><small>${esc(w.help)}</small></span></button>`).join('')}
       </div>
       <button class="btn-wide" id="close-new" type="button">Cancel</button>
@@ -612,7 +613,7 @@ async function showApply() {
 
 // ---------------------------------------------------------------- Work From Home / Onsite request (not leave)
 async function showWork(type = 'Work From Home') {
-  shell(`${topBar('Work From Home / Onsite')}<div id="apply-body"><div class="app-loading"><span class="spinner"></span></div></div>`);
+  shell(`${topBar('Work From Home')}<div id="apply-body"><div class="app-loading"><span class="spinner"></span></div></div>`);
   $('#back').addEventListener('click', showHome);
   let o;
   try { o = await api('/portal/options'); } catch (err) { if (err.message !== 'SIGNED_OUT') $('#apply-body').innerHTML = `<p class="form-error">${esc(err.message)}</p>`; return; }
@@ -623,12 +624,10 @@ async function showWork(type = 'Work From Home') {
   const dateInput = (name) => `<input type="date" name="${name}" min="${o.today}" aria-label="Date">`;
 
   $('#apply-body').innerHTML = `<form class="app-box form apply" id="work-form" novalidate>
-      <p class="work-note">This is <b>not leave</b>. No leave balance is used. Your department head approves it.</p>
-      ${step(1, 'Work type', `
-        <div class="work-types">${Object.entries(WORK).map(([t, w]) => `<label class="work-type ${w.key}">
-          <input type="radio" name="work_type" value="${esc(t)}" ${t === type ? 'checked' : ''}><span class="nc-icon">${w.icon}</span><b>${esc(w.short)}</b></label>`).join('')}</div>
-        <label class="field" id="loc-box"><span>Location <small>(optional)</small></span><input name="location" maxlength="120" placeholder="e.g. Colombo Port, client office"></label>`)}
-      ${step(2, 'Date(s)', `
+      <p class="work-note">This is <b>not leave</b>. No leave balance is used. Your department head approves it.
+        Without an approved request you work at the office.</p>
+      <input type="hidden" name="work_type" value="Work From Home"><input type="hidden" name="location" value="">
+      ${step(1, 'Date(s)', `
         <fieldset class="field"><span>How many days?</span>
           <div class="segmented">
             <label><input type="radio" name="mode" value="one" checked><span>One day</span></label>
@@ -645,7 +644,7 @@ async function showWork(type = 'Work From Home') {
           <button type="button" class="btn btn-small" id="add-date" style="margin-top:8px">+ Add a date</button>
         </div>
         <p class="summary" id="summary"></p>`)}
-      ${step(3, 'Reason', `<label class="field"><span>Reason <small>(optional)</small></span><textarea name="reason" rows="3" maxlength="1000"></textarea></label>`)}
+      ${step(2, 'Reason', `<label class="field"><span>Reason <small>(optional)</small></span><textarea name="reason" rows="3" maxlength="1000"></textarea></label>`)}
       <p class="form-error" hidden></p>
       <button class="btn-wide primary" type="submit"><span>Submit</span></button>
     </form>`;
@@ -654,9 +653,7 @@ async function showWork(type = 'Work From Home') {
   const errBox = $('.form-error', form);
   const mark = (n, on) => { const s = $(`[data-step="${n}"]`, form); if (s) s.classList.toggle('done', !!on); };
   function update() {
-    const t = form.work_type.value;
     const m = form.mode.value;
-    $('#loc-box').hidden = t !== 'Onsite';
     $('#one-box').hidden = m !== 'one';
     $('#range-box').hidden = m !== 'range';
     $('#dates-box').hidden = m !== 'dates';
@@ -676,9 +673,8 @@ async function showWork(type = 'Work From Home') {
       if (ds.length) text = off.length ? `⚠ ${off.map(fmtDate).join(', ')}: weekend / holiday.` : `✓ ${ds.length} working day(s)`;
     }
     $('#summary').textContent = text;
-    mark(1, !!t);
-    mark(2, datesOk);
-    mark(3, !!form.reason.value.trim());
+    mark(1, datesOk);
+    mark(2, !!form.reason.value.trim());
   }
   form.addEventListener('input', update);
   form.addEventListener('change', update);
