@@ -882,3 +882,6 @@ th.late-col, td.late-col { background: #fff8ec; }
 .emp-list .emp-cell { gap: 8px; }
 .emp-list .emp-cell { display: flex; align-items: flex-start; min-width: 0; }
 .emp-list .emp-cell > span:last-child { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+/* Chart: thin lines between the leave types */
+.lc tr.lc-start:not(:first-child) th, .lc tr.lc-start:not(:first-child) td { border-top: 1px solid color-mix(in srgb, var(--brand) 45%, #fff); }
+.lc tr.lc-late.lc-start:not(:first-child) th, .lc tr.lc-late.lc-start:not(:first-child) td { border-top-color: #f0b46a; }
