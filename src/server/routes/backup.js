@@ -23,7 +23,7 @@ async function collect(env) {
   const settings = await getSettings(env);
   const today = todayIn(settings.timezone);
   const year = leaveYear(today, settings.year_start);
-  const [employees, departments, heads, users, leave, work, types, holidays, yearRows] = await Promise.all([
+  const [employees, departments, heads, users, leave, work, types, holidays, yearRows, late] = await Promise.all([
     all(env, `SELECT e.id, e.emp_no, e.name, e.email, d.name AS department, e.designation, e.etf_no, e.nic_no, e.phone, e.status, e.created_at
       FROM employees e LEFT JOIN departments d ON d.id = e.department_id ORDER BY e.emp_no`),
     all(env, 'SELECT id, name FROM departments ORDER BY name'),
@@ -37,6 +37,7 @@ async function collect(env) {
     all(env, 'SELECT date, name FROM holidays ORDER BY date'),
     all(env, `SELECT employee_id, leave_type, days, status FROM leave_requests
       WHERE status IN ('Approved', 'Pending') AND from_date >= ? AND from_date < ?`, year.start, year.end),
+    all(env, 'SELECT date, emp_no, emp_name, department, message, created_at FROM late_arrivals ORDER BY date DESC, id DESC'),
   ]);
   const ROLE = { super_admin: 'Super admin', admin: 'Admin', head: 'Department head' };
 
@@ -74,6 +75,8 @@ async function collect(env) {
       ...types.map((t) => [t.name, t.days_per_year ?? 'No limit', t.counts_in_pool ? 'Yes' : '', t.allow_half ? 'Yes' : '', t.is_short ? 'Yes' : '', t.active ? 'Yes' : 'No']),
       [], ['Total leave days per year', settings.pool_days || 'Sum of the leave types'], ['Short leaves per month', settings.short_per_month || ''],
       ['Half day taken from', halfFrom]],
+    'Late Arrivals': [['Date', 'Emp No', 'Name', 'Department', 'Message', 'Informed at'],
+      ...late.map((l) => [l.date, l.emp_no, l.emp_name, l.department, l.message, l.created_at])],
     Holidays: [['Date', 'Day', 'Holiday'], ...holidays.map((h) => [h.date, DAYS[new Date(`${h.date}T00:00:00Z`).getUTCDay()], h.name])],
     Settings: [['Setting', 'Value'], ['Company name', settings.company_name], ['Time zone', settings.timezone], ['Leave year starts', settings.year_start],
       ['Weekend days', String(settings.weekend).split(',').filter(Boolean).map((d) => DAYS[Number(d)]).join(', ')],

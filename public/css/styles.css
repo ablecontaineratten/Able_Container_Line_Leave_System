@@ -844,3 +844,9 @@ th.wfh-col, td.wfh-col { background: color-mix(in srgb, var(--brand) 5%, transpa
 .wfh-count { display: inline-block; min-width: 34px; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, var(--brand) 14%, #fff); color: var(--brand); font-weight: 800; font-size: .8rem; }
 .wfh-count.over { background: var(--accent-bg); color: var(--accent); }
 .lc .lc-wfh-day td { font-size: .82rem; }
+
+/* ---------- Late reasons page */
+.late-filters input[type=search] { flex: 1 1 220px; }
+.late-date { display: inline-flex; align-items: center; gap: 6px; font-size: .85rem; color: var(--muted); font-weight: 600; }
+.late-msg { display: block; max-width: 520px; white-space: pre-wrap; }
+.late-more { display: flex; justify-content: center; margin-top: 12px; }

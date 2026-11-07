@@ -166,8 +166,9 @@ async function showHome() {
   bellCount();
   let d;
   try { d = await loadData(); } catch (err) { if (err.message !== 'SIGNED_OUT') $('#home-body').innerHTML = `<p class="form-error">${esc(err.message)}</p>`; return; }
-  // leave + Work From Home / Onsite together, newest date first
-  const items = [...d.requests.map((r) => ({ ...r, kind: 'leave' })), ...(d.work || []).map((w) => ({ ...w, kind: 'work' }))]
+  // leave + Work From Home + late arrival messages together, newest date first
+  const items = [...d.requests.map((r) => ({ ...r, kind: 'leave' })), ...(d.work || []).map((w) => ({ ...w, kind: 'work' })),
+    ...(d.late || []).map((l) => ({ ...l, kind: 'late', from_date: l.date, submitted_at: l.created_at, status: 'Informed' }))]
     .sort((a, b) => (a.from_date === b.from_date ? String(b.submitted_at).localeCompare(String(a.submitted_at)) : a.from_date < b.from_date ? 1 : -1));
   drawList(items);
 }
@@ -184,6 +185,8 @@ function openNewRequest() {
           <span><b>Leave</b><small>Annual, casual, half day or short leave</small></span></button>
         ${NEW_CHOICES.map((type) => [type, WORK[type]]).map(([type, w]) => `<button type="button" class="new-choice ${w.key}" data-new="${esc(type)}"><span class="nc-icon">${w.icon}</span>
           <span><b>${esc(w.short)}</b><small>${esc(w.help)}</small></span></button>`).join('')}
+        <button type="button" class="new-choice late" data-new="late"><span class="nc-icon">${ICON.clock}</span>
+          <span><b>Late Arrival</b><small>Tell your head you will be late today (no approval)</small></span></button>
       </div>
       <button class="btn-wide" id="close-new" type="button">Cancel</button>
     </div>`;
@@ -194,7 +197,7 @@ function openNewRequest() {
   $('#close-new', wrap).addEventListener('click', close);
   $$('[data-new]', wrap).forEach((b) => b.addEventListener('click', () => {
     wrap.remove();
-    if (b.dataset.new === 'leave') showApply(); else showWork(b.dataset.new);
+    if (b.dataset.new === 'leave') showApply(); else if (b.dataset.new === 'late') showLate(); else showWork(b.dataset.new);
   }));
 }
 
@@ -308,9 +311,16 @@ function drawList(requests) {
   const tabs = [['all', 'All', ICON.list], ['Pending', 'Pending', ICON.clock], ['Approved', 'Approved', ICON.check]];
   const rows = state.filter === 'all' ? requests : requests.filter((r) => r.status === state.filter);
   // every card says clearly what it is: LEAVE or WFH
-  const kindTag = (r) => (r.kind === 'work' ? '<span class="kind-tag work">WFH</span>' : '<span class="kind-tag leave">LEAVE</span>');
+  const kindTag = (r) => (r.kind === 'work' ? '<span class="kind-tag work">WFH</span>'
+    : r.kind === 'late' ? '<span class="kind-tag late">LATE</span>' : '<span class="kind-tag leave">LEAVE</span>');
   body.innerHTML = `<div class="seg">${tabs.map(([k, label, icon]) => `<button type="button" data-filter="${k}" class="${state.filter === k ? 'on' : ''}">
-      ${icon}<span>${label}</span>${k === 'Pending' && pending ? `<em>${pending}</em>` : ''}</button>`).join('')}</div>    <div class="leave-list">${rows.length ? rows.map((r, i) => (r.kind === 'work' ? `
+      ${icon}<span>${label}</span>${k === 'Pending' && pending ? `<em>${pending}</em>` : ''}</button>`).join('')}</div>    <div class="leave-list">${rows.length ? rows.map((r, i) => (r.kind === 'late' ? `
+      <button class="leave-card late-card" type="button" data-i="${requests.indexOf(r)}" style="--i:${Math.min(i, 8)}">
+        <span class="lc-icon wk-late">${ICON.clock}</span>
+        <span class="lc-main">${kindTag(r)}<b>Late arrival</b><span class="lc-date">${ICON.cal}${esc(fmtDate(r.date))} · ${esc(fmtDateTime(r.created_at, state.timezone).split(', ').pop())}</span></span>
+        ${pill(r.status)}
+        <span class="lc-note">${ICON.note}<span>${esc(r.message)}</span></span>
+      </button>` : r.kind === 'work' ? `
       <button class="leave-card work-card ${WORK[r.work_type].key}" type="button" data-i="${requests.indexOf(r)}" style="--i:${Math.min(i, 8)}">
         <span class="lc-icon wk-${WORK[r.work_type].key}">${WORK[r.work_type].icon}</span>
         <span class="lc-main">${kindTag(r)}<b>${esc(r.work_type)}${r.location ? ` <small>· ${esc(r.location)}</small>` : ''}</b><span class="lc-date">${ICON.cal}${esc(workWhen(r))}</span></span>
@@ -331,6 +341,20 @@ function drawList(requests) {
 // Bottom sheet with the details of one request (+ Withdraw when pending)
 function openSheet(r) {
   const row = (k, v) => (v ? `<div class="sheet-row"><span>${esc(k)}</span><b>${esc(v)}</b></div>` : '');
+  if (r.kind === 'late') {               // late arrival: just the message (inform only)
+    const w = document.createElement('div');
+    w.className = 'sheet-back';
+    w.innerHTML = `<div class="sheet" role="dialog" aria-modal="true"><div class="sheet-grip"></div>
+      <div class="sheet-head"><span class="lc-icon wk-late">${ICON.clock}</span><div><b>Late arrival</b><small>Informed - no approval needed</small></div>${pill(r.status)}</div>
+      ${row('Date', fmtDate(r.date))}${row('Sent', fmtDateTime(r.created_at, state.timezone))}${row('Message', r.message)}
+      <button class="btn-wide" id="close-sheet" type="button">Close</button></div>`;
+    document.body.appendChild(w);
+    requestAnimationFrame(() => w.classList.add('open'));
+    const shut = () => { w.classList.remove('open'); setTimeout(() => w.remove(), 250); };
+    w.addEventListener('click', (ev) => { if (ev.target === w) shut(); });
+    $('#close-sheet', w).addEventListener('click', shut);
+    return;
+  }
   const work = r.kind === 'work';
   const wrap = document.createElement('div');
   wrap.className = 'sheet-back';
@@ -702,6 +726,37 @@ async function showWork(type = 'Work From Home') {
     }
   });
   update();
+}
+
+// ---------------------------------------------------------------- Late arrival (inform only: today + a message)
+function showLate() {
+  shell(`${topBar('Late Arrival')}
+    <form class="app-box form apply" id="late-form" novalidate>
+      <p class="work-note">This only <b>informs</b> your department head. No approval is needed and no leave is used.</p>
+      <label class="field"><span>Date</span><input type="text" value="${esc(fmtDate(state.today))} (today)" readonly></label>
+      <label class="field"><span>Message *</span><textarea name="message" rows="4" maxlength="500" required
+        placeholder="e.g. Heavy traffic - I will reach the office around 10:00"></textarea></label>
+      <p class="form-error" hidden></p>
+      <button class="btn-wide primary" type="submit"><span>Send</span></button>
+    </form>`);
+  $('#back').addEventListener('click', showHome);
+  const form = $('#late-form');
+  const errBox = $('.form-error', form);
+  form.message.focus();
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const message = form.message.value.trim();
+    if (!message) { errorBox(errBox, 'Please write a short message.'); return; }
+    const btn = $('button[type=submit]', form);
+    busy(btn, true, 'Sending…');
+    try {
+      showDone(await api('/portal/late', { request_id: requestId, message }));
+    } catch (err) {
+      if (err.message === 'SIGNED_OUT') return;
+      errorBox(errBox, err.message);
+      busy(btn, false, 'Send');
+    }
+  });
 }
 
 function showDone(res) {

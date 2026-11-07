@@ -22,6 +22,7 @@ import access from './pages/access.js';
 import usage from './pages/usage.js';
 import profile from './pages/profile.js';
 import work from './pages/work.js';
+import late from './pages/late.js';
 
 const ICONS = {
   home: 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
@@ -43,6 +44,7 @@ const ICONS = {
   bell: 'M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0',
   grid: 'M3 3h18v18H3zM3 9h18M3 15h18M9 3v18M15 3v18',
   more: 'M4 6h16M4 12h16M4 18h10',
+  clock: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2',
   pin: 'M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21zM12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
 };
 // phone screens: bottom tabs (first 4 of these the person can open) + "More" for the full menu
@@ -57,6 +59,7 @@ const ROUTES = [
   { path: 'approvals', label: 'Approvals', icon: 'check', page: approvals, perm: ['approve.decide', 'requests.manage'], badge: 'leave' },
   // Work From Home / Onsite requests (not leave)
   { path: 'work', label: 'WFH Request', icon: 'home', page: work, perm: ['approve.decide', 'requests.manage'], badge: 'work' },
+  { path: 'late', label: 'Late reasons', icon: 'clock', page: late, perm: ['approve.decide', 'requests.manage', 'requests.view'] },
   { path: 'requests', label: 'All requests', icon: 'inbox', page: requests, perm: 'requests.view' },
   { path: 'calendar', label: 'Calendar', icon: 'calendar', page: calendar, perm: 'calendar.view' },
   { path: 'team', label: 'Leave/Shift Summary', icon: 'users', page: team, perm: 'team.view' },

@@ -645,3 +645,10 @@
 .kind-tag { display: inline-block; margin-bottom: 3px; padding: 1px 8px; border-radius: 6px; font-size: .66rem; font-weight: 800; letter-spacing: .06em; color: #fff; }
 .kind-tag.leave { background: #1e9e5c; }
 .kind-tag.work { background: var(--brand); }
+
+/* Late arrival (inform only) - amber */
+.new-choice.late .nc-icon, .lc-icon.wk-late { background: #fff3e0; color: #e67700; }
+.new-choice.late:hover { border-color: #f0a040; }
+.kind-tag.late { background: #e67700; }
+.late-card { box-shadow: inset 4px 0 0 #e67700, 0 4px 16px -8px rgba(22, 29, 92, .22); }
+.s-informed { background: #fff3e0; color: #b35c00; }

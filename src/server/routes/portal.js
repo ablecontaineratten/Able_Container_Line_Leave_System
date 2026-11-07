@@ -8,6 +8,7 @@ import { getSettings, weekendSet } from '../settings.js';
 import { balanceSummary, createRequest, decideRequests, getHolidaySet, getLeaveTypes, workingDates } from '../leave.js';
 import { clean, isEmail, lower, nowIso, todayIn } from '../utils.js';
 import { portalWorkRows } from './work.js';
+import { portalLateRows } from './late.js';
 
 export const DEFAULT_PASSWORD = 'user@123';
 const COOKIE = 'lms_emp';
@@ -127,15 +128,16 @@ async function summary(c) {
   const e = await portalEmployee(c);
   const settings = await getSettings(c.env);
   const today = todayIn(settings.timezone);
-  const [balance, requests, types, holidays, work] = await Promise.all([
+  const [balance, requests, types, holidays, work, late] = await Promise.all([
     balanceSummary(c.env, e.id, today, { settings }),
     all(c.env, `SELECT id, request_no, group_no, leave_type, from_date, to_date, day_type, out_time, return_time, days, hours, reason,
       status, remark, decided_by, decided_at, submitted_at FROM leave_requests WHERE employee_id = ? ORDER BY from_date DESC, id DESC LIMIT 300`, e.id),
     getLeaveTypes(c.env),
     getHolidaySet(c.env),
-    portalWorkRows(c.env, e.id),                 // Work From Home / Onsite requests (not leave)
+    portalWorkRows(c.env, e.id),                 // Work From Home requests (not leave)
+    portalLateRows(c.env, e.id),                 // late arrival messages (inform only)
   ]);
-  return { employee: publicEmployee(e), today, balance, requests, work, taken: takenDates(requests, types, settings, holidays, balance.year) };
+  return { employee: publicEmployee(e), today, balance, requests, work, late, taken: takenDates(requests, types, settings, holidays, balance.year) };
 }
 
 // Approved leave days of this leave year, one date per working day, newest first:
