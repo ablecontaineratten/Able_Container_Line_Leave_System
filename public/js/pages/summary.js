@@ -7,6 +7,7 @@ const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct
 const dMon = (s) => `${Number(s.slice(8, 10))}-${MON[Number(s.slice(5, 7)) - 1]}`;
 const dmy = (s) => `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}`;
 const pad = (n) => String(n).padStart(2, '0');
+const openWfh = new Set();          // WFH periods opened in the chart (kept while the app is open)
 const valid = (y, m, d) => { const s = `${y}-${pad(m)}-${pad(d)}`; const t = new Date(`${s}T00:00:00Z`); return !isNaN(t) && t.toISOString().slice(0, 10) === s ? s : null; };
 
 // Typed dates: "27-Feb", "6 Mar", "16/04", "16/04/2026", "2026-04-16" (comma, space or new line between).
@@ -89,8 +90,38 @@ export default async function render(view, ctx) {
   const cellDates = (e, k) => (cells[e.id] && cells[e.id][k]) || [];
   const deptOptions = departments.filter((d) => me.scopeAll || me.deptIds.includes(d.id));
 
+  // WFH grouped by the WFH limit period (Settings → WFH Settings): one button per week / month / year,
+  // showing each employee's count (e.g. 2/2); clicking it expands every employee's WFH days of that period
+  const period = ctx.state.settings.wfh_limit_period || '';
+  const limit = Number(ctx.state.settings.wfh_limit_days) || 0;
+  const periodKey = (d) => {
+    if (period === 'month') return d.slice(0, 7);
+    if (period === 'year') return d.slice(5) >= (ctx.state.settings.year_start || '01-01') ? d.slice(0, 4) : String(Number(d.slice(0, 4)) - 1);
+    return addDays(d, -((new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7));          // the Monday of that week
+  };
+  const periodLabel = (k) => (period === 'month' ? `${MON[Number(k.slice(5, 7)) - 1]} ${k.slice(0, 4)}`
+    : period === 'year' ? `Year ${k}` : `Week ${dMon(k)} – ${dMon(addDays(k, 6))}`);
+  const wfhRows = (r) => {
+    const keys = [...new Set(employees.flatMap((e) => cellDates(e, r.key).map(periodKey)))].sort();
+    if (!keys.length) return `<tr class="lc-start lc-wfh"><th>${esc(r.label)}</th>${employees.map(() => '<td></td>').join('')}</tr>`;
+    return keys.map((k, gi) => {
+      const open = openWfh.has(k);
+      const inK = (e) => cellDates(e, r.key).filter((d) => periodKey(d) === k);
+      const head = `<tr class="lc-wfh lc-wfh-group ${gi === 0 ? 'lc-start' : ''}">
+        <th>${gi === 0 ? `<span class="lc-wfh-title">${esc(r.label)}</span>` : ''}<button type="button" class="wfh-period" data-period="${k}" aria-expanded="${open}">${open ? '▾' : '▸'} ${esc(periodLabel(k))}</button></th>
+        ${employees.map((e) => { const n = inK(e).length; return `<td>${n ? `<span class="wfh-count ${limit && n > limit ? 'over' : ''}">${n}${limit ? `/${limit}` : ''}</span>` : ''}</td>`; }).join('')}</tr>`;
+      if (!open) return head;
+      const lines = Math.max(1, ...employees.map((e) => inK(e).length));
+      return head + Array.from({ length: lines }, (_, i) => `<tr class="lc-wfh lc-wfh-day"><th></th>${employees.map((e) => {
+        const d = inK(e)[i];
+        return `<td>${d ? dMon(d) : ''}</td>`;
+      }).join('')}</tr>`).join('');
+    }).join('');
+  };
+
   // one block per leave type; as many lines as the employee with the most dates (at least 1)
   const body = rows.map((r) => {
+    if (r.kind === 'wfh' && period) return wfhRows(r);
     const lines = Math.max(1, ...employees.map((e) => cellDates(e, r.key).length));
     const wfh = r.kind === 'wfh';          // WFH row: shown only (requested + approved in the WFH flow)
     return Array.from({ length: lines }, (_, i) => `<tr class="${i === 0 ? 'lc-start' : ''} ${wfh ? 'lc-wfh' : ''}">
@@ -115,6 +146,10 @@ export default async function render(view, ctx) {
       <tbody>${body}</tbody></table></div>` : '<div class="empty">No employees.</div>'}</section>`;
 
   const reload = () => render(view, ctx);
+  $$('.wfh-period', view).forEach((b) => b.addEventListener('click', () => {
+    if (openWfh.has(b.dataset.period)) openWfh.delete(b.dataset.period); else openWfh.add(b.dataset.period);
+    reload();
+  }));
   const sel = $('#dept', view);
   if (sel) sel.addEventListener('change', () => ctx.go(`summary${qs({ department_id: sel.value, date })}`));
 

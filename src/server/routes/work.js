@@ -4,7 +4,7 @@
 import { all, batch, first, marks, run, stmt } from '../db.js';
 import { fail, html, HttpError, readJson } from '../http.js';
 import { can, inScope, scopeSql } from '../permissions.js';
-import { getSettings, weekendSet } from '../settings.js';
+import { getSettings, weekendSet, wfhPeriodKey } from '../settings.js';
 import { randomHex } from '../auth.js';
 import { approversFor, fallbackApprovers, getHolidaySet, workingDates } from '../leave.js';
 import { button, emailEnabled, infoTable, layout, nowText, page, sendEmail } from '../email.js';
@@ -91,6 +91,25 @@ async function createWorkRequest(c, employee, input) {
   for (const w of work) {
     const same = dates.find((d) => w.dates.split(',').includes(d));
     if (same) fail(400, `You already have request ${w.request_no} (${w.status}) on ${fmtDate(same)}.`);
+  }
+
+  // ---- WFH limit (Settings → WFH Settings): days per week / month / year, counting approved + pending
+  const period = settings.wfh_limit_period;
+  const limit = Number(settings.wfh_limit_days);
+  if (period && limit > 0) {
+    const keyOf = (d) => wfhPeriodKey(d, period, settings.year_start);
+    const mine = await all(env, `SELECT dates FROM work_requests WHERE employee_id = ? AND status IN ('Pending', 'Approved') AND work_type = 'Work From Home'`, employee.id);
+    const used = new Map();
+    for (const w of mine) for (const d of w.dates.split(',')) used.set(keyOf(d), (used.get(keyOf(d)) || 0) + 1);
+    const asked = new Map();
+    for (const d of dates) asked.set(keyOf(d), (asked.get(keyOf(d)) || 0) + 1);
+    for (const [k, n] of asked) {
+      const had = used.get(k) || 0;
+      if (had + n > limit) {
+        const label = period === 'week' ? `the week of ${fmtDate(k)}` : period === 'month' ? `${monthName(`${k}-01`)} ${k.slice(0, 4)}` : `the year ${k}`;
+        fail(400, `WFH limit is ${limit} day${limit === 1 ? '' : 's'} per ${period}. In ${label} you already have ${had} and asked for ${n}.`);
+      }
+    }
   }
 
   // ---- save

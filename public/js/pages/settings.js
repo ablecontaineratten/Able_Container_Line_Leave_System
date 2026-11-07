@@ -10,11 +10,12 @@ export default async function render(view, ctx) {
   const canEdit = ctx.state.me.perms['settings.edit'];
   view.innerHTML = `${pageHead('Settings')}
     <div class="tabs" role="tablist">
-      ${[['general', 'General'], ['types', 'Leave Settings'], ['notifications', 'Notifications']].map(([k, l]) =>
+      ${[['general', 'General'], ['types', 'Leave Settings'], ['wfh', 'WFH Settings'], ['notifications', 'Notifications']].map(([k, l]) =>
         `<a role="tab" href="#/settings?tab=${k}" class="${k === tab ? 'active' : ''}" aria-selected="${k === tab}">${l}</a>`).join('')}
     </div><div id="tab-body" class="loading">Loading…</div>`;
   const body = $('#tab-body');
   if (tab === 'types') await typesTab(body, ctx, canEdit);
+  else if (tab === 'wfh') await wfhTab(body, ctx);
   else if (tab === 'notifications') await notificationSettings(body, { post, toast });
   else await generalTab(body, ctx, canEdit);
   body.classList.remove('loading');
@@ -127,6 +128,48 @@ async function backupBox(box, canEdit) {
     });
   };
   draw();
+}
+
+// WFH Settings: how many WFH days an employee may have per week / month / year (only a Super admin can change it)
+async function wfhTab(body, ctx) {
+  const s = await get('/settings');
+  if (!ctx.isCurrent()) return;
+  const canEdit = !!ctx.state.me.isSuper;
+  const PERIODS = [['', 'No limit', 'Employees can ask for WFH on any number of days.'],
+    ['week', 'Per week', 'A limit for each week (Monday – Sunday).'],
+    ['month', 'Per month', 'A limit for each calendar month.'],
+    ['year', 'Per year', 'A limit for each leave year.']];
+  body.innerHTML = `<form class="card" id="wfh-form">
+      <h2>WFH limit</h2>
+      <p class="muted small">How many <b>Work From Home</b> days can one employee have? Approved and pending WFH days are counted.
+        A request that goes over the limit is stopped and the employee sees why. The Leave/Shift Chart groups WFH days by the same period.</p>
+      <div class="half-options">${PERIODS.map(([v, label, help]) => `<label class="half-option"><input type="radio" name="period" value="${v}" ${(s.wfh_limit_period || '') === v ? 'checked' : ''} ${canEdit ? '' : 'disabled'}>
+        <span><b>${label}</b><small>${help}</small></span></label>`).join('')}</div>
+      <label class="field wfh-days" id="wfh-days-box"><span>WFH days allowed <b id="wfh-per"></b></span>
+        <input type="number" name="days" min="1" max="366" value="${esc(s.wfh_limit_days || '')}" ${canEdit ? '' : 'disabled'} placeholder="e.g. 2"></label>
+      <p class="form-error" hidden></p>
+      ${canEdit ? '<button class="btn btn-primary" type="submit">Save</button>' : '<p class="muted small">Only a Super admin can change the WFH settings.</p>'}
+    </form>`;
+  const form = $('#wfh-form', body);
+  const sync = () => {
+    const p = $('input[name=period]:checked', form).value;
+    $('#wfh-days-box', form).hidden = !p;
+    $('#wfh-per', form).textContent = p ? `(per ${p})` : '';
+  };
+  form.addEventListener('change', sync);
+  sync();
+  if (!canEdit) return;
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = $('.form-error', form);
+    err.hidden = true;
+    const period = $('input[name=period]:checked', form).value;
+    try {
+      await put('/settings', { wfh_limit_period: period, wfh_limit_days: period ? form.days.value.trim() : '' });
+      toast('WFH settings saved.');
+      await ctx.reload();
+    } catch (ex) { err.textContent = ex.message; err.hidden = false; }
+  });
 }
 
 // Leave Settings: yearly total + short leaves per month, then the leave types

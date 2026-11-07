@@ -835,3 +835,12 @@ img.emp-avatar:hover { transform: scale(1.9); position: relative; z-index: 2; }.
 .lc .lc-wfh.lc-start th, .lc .lc-wfh.lc-start td { border-top: 2px solid var(--brand); }
 .wfh-num { color: var(--brand); }
 th.wfh-col, td.wfh-col { background: color-mix(in srgb, var(--brand) 5%, transparent); }
+.wfh-days { max-width: 280px; }
+/* Leave/Shift Chart: WFH grouped by week / month / year */
+.lc .lc-wfh-group th { white-space: nowrap; }
+.lc-wfh-title { display: block; color: var(--brand); font-weight: 800; margin-bottom: 4px; }
+.wfh-period { border: 1.5px solid color-mix(in srgb, var(--brand) 35%, #fff); background: #fff; color: var(--brand); border-radius: 999px; padding: 3px 10px; font: inherit; font-size: .78rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.wfh-period:hover, .wfh-period[aria-expanded="true"] { background: var(--brand); color: #fff; border-color: var(--brand); }
+.wfh-count { display: inline-block; min-width: 34px; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, var(--brand) 14%, #fff); color: var(--brand); font-weight: 800; font-size: .8rem; }
+.wfh-count.over { background: var(--accent-bg); color: var(--accent); }
+.lc .lc-wfh-day td { font-size: .82rem; }

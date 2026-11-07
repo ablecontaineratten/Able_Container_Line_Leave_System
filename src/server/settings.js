@@ -16,7 +16,9 @@ export const SETTING_DEFAULTS = {
   email_from: '',             // sender; the EMAIL_FROM variable wins when set
   brand_color: '#28398A',
   logo_url: '',
-  form_url: '',               // the Google Form employees use (shown in "request not sent" emails)
+  form_url: '',               // the employee app link (shown in "request not sent" emails)
+  wfh_limit_period: '',       // WFH limit per: '' (no limit) | week | month | year
+  wfh_limit_days: '',         // how many WFH days in that period
 };
 
 export async function getSettings(env) {
@@ -34,6 +36,7 @@ export function publicSettings(s) {
   return {
     company_name: s.company_name, timezone: s.timezone, year_start: s.year_start, weekend: s.weekend,
     no_balance: s.no_balance, brand_color: s.brand_color, logo_url: s.logo_url,
+    wfh_limit_period: s.wfh_limit_period, wfh_limit_days: s.wfh_limit_days,
   };
 }
 
@@ -54,7 +57,21 @@ const RULES = {
   brand_color: (v) => /^#[0-9a-f]{6}$/i.test(v) || 'Color must look like #0B3B8C.',
   logo_url: (v) => v === '' || /^https:\/\/[^\s]+$/.test(v) || 'Logo must be an https:// image link.',
   form_url: (v) => v === '' || /^https:\/\/[^\s]+$/.test(v) || 'Form link must start with https://',
+  wfh_limit_period: (v) => ['', 'week', 'month', 'year'].includes(v) || 'Choose week, month, year or no limit.',
+  wfh_limit_days: (v) => v === '' || (Number.isInteger(Number(v)) && Number(v) >= 1 && Number(v) <= 366) || 'WFH limit must be a whole number of days (1 or more).',
 };
+
+// WFH limit: the period a date belongs to. Weeks start on Monday (ISO week).
+export function wfhPeriodKey(date, period, yearStart = '01-01') {
+  if (period === 'month') return date.slice(0, 7);
+  if (period === 'year') {
+    const y = Number(date.slice(0, 4));
+    return date.slice(5) >= yearStart ? String(y) : String(y - 1);      // the leave year it starts in
+  }
+  const d = new Date(`${date}T00:00:00Z`);
+  const monday = new Date(d.getTime() - ((d.getUTCDay() + 6) % 7) * 86400000);
+  return monday.toISOString().slice(0, 10);                                  // week = its Monday
+}
 
 export async function saveSettings(env, input) {
   const updates = [];

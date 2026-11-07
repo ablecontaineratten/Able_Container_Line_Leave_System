@@ -25,7 +25,11 @@ async function testEmail(c) {
 }
 
 async function putSettings(c) {
-  return saveSettings(c.env, await readJson(c.request));
+  const b = await readJson(c.request);
+  // WFH limits: only a Super admin decides them
+  if (('wfh_limit_period' in b || 'wfh_limit_days' in b) && !c.me.isSuper) fail(403, 'Only a Super admin can change the WFH settings.');
+  if ('wfh_limit_period' in b && b.wfh_limit_period && !String(b.wfh_limit_days ?? '').trim()) fail(400, 'Enter how many WFH days are allowed.');
+  return saveSettings(c.env, b);
 }
 
 // ---------------------------------------------------------------- leave types
