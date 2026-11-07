@@ -640,3 +640,8 @@
 .kind-seg button.on { color: #fff; border-color: transparent; background: var(--navy); }
 .kind-seg button.leave.on { background: #1e9e5c; }
 .kind-seg button.work.on { background: var(--brand); }
+
+/* Home list: LEAVE / WFH label on every card */
+.kind-tag { display: inline-block; margin-bottom: 3px; padding: 1px 8px; border-radius: 6px; font-size: .66rem; font-weight: 800; letter-spacing: .06em; color: #fff; }
+.kind-tag.leave { background: #1e9e5c; }
+.kind-tag.work { background: var(--brand); }

@@ -6,7 +6,7 @@ import { enablePush, PUSH_HELP, pushState, registerWorker, resyncPush } from './
 const root = $('#root');
 const newId = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}-x`);
 let requestId = newId();          // same id for retries of one request, so it is never saved twice
-const state = { company_name: '', today: '', employee: null, data: null, filter: 'all', kind: 'all' };
+const state = { company_name: '', today: '', employee: null, data: null, filter: 'all' };
 
 const svg = (d, extra = '') => `<svg viewBox="0 0 24 24" aria-hidden="true" ${extra}>${d}</svg>`;
 const ICON = {
@@ -306,30 +306,25 @@ function drawList(requests) {
   if (!body) return;
   const pending = requests.filter((r) => r.status === 'Pending').length;
   const tabs = [['all', 'All', ICON.list], ['Pending', 'Pending', ICON.clock], ['Approved', 'Approved', ICON.check]];
-  // second row: All / Leave / WFH (inside each status tab)
-  const kinds = [['all', 'All'], ['leave', 'Leave'], ['work', 'WFH']];
-  const byStatus = state.filter === 'all' ? requests : requests.filter((r) => r.status === state.filter);
-  const rows = state.kind === 'all' ? byStatus : byStatus.filter((r) => r.kind === state.kind);
-  const count = (k) => (k === 'all' ? byStatus.length : byStatus.filter((r) => r.kind === k).length);
+  const rows = state.filter === 'all' ? requests : requests.filter((r) => r.status === state.filter);
+  // every card says clearly what it is: LEAVE or WFH
+  const kindTag = (r) => (r.kind === 'work' ? '<span class="kind-tag work">WFH</span>' : '<span class="kind-tag leave">LEAVE</span>');
   body.innerHTML = `<div class="seg">${tabs.map(([k, label, icon]) => `<button type="button" data-filter="${k}" class="${state.filter === k ? 'on' : ''}">
-      ${icon}<span>${label}</span>${k === 'Pending' && pending ? `<em>${pending}</em>` : ''}</button>`).join('')}</div>
-    <div class="kind-seg">${kinds.map(([k, label]) => `<button type="button" data-kind="${k}" class="${k} ${state.kind === k ? 'on' : ''}">${label} <small>${count(k)}</small></button>`).join('')}</div>
-    <div class="leave-list">${rows.length ? rows.map((r, i) => (r.kind === 'work' ? `
+      ${icon}<span>${label}</span>${k === 'Pending' && pending ? `<em>${pending}</em>` : ''}</button>`).join('')}</div>    <div class="leave-list">${rows.length ? rows.map((r, i) => (r.kind === 'work' ? `
       <button class="leave-card work-card ${WORK[r.work_type].key}" type="button" data-i="${requests.indexOf(r)}" style="--i:${Math.min(i, 8)}">
         <span class="lc-icon wk-${WORK[r.work_type].key}">${WORK[r.work_type].icon}</span>
-        <span class="lc-main"><b>${esc(r.work_type)}${r.location ? ` <small>· ${esc(r.location)}</small>` : ''}</b><span class="lc-date">${ICON.cal}${esc(workWhen(r))}</span></span>
+        <span class="lc-main">${kindTag(r)}<b>${esc(r.work_type)}${r.location ? ` <small>· ${esc(r.location)}</small>` : ''}</b><span class="lc-date">${ICON.cal}${esc(workWhen(r))}</span></span>
         ${pill(r.status)}
         ${r.reason ? `<span class="lc-note">${ICON.note}<span>${esc(r.reason)}</span></span>` : ''}
       </button>` : `
       <button class="leave-card" type="button" data-i="${requests.indexOf(r)}" style="--i:${Math.min(i, 8)}">
         <span class="lc-icon s-${r.status.toLowerCase()}">${STATUS_ICON[r.status] || ICON.clock}</span>
-        <span class="lc-main"><b>${esc(r.leave_type)}</b><span class="lc-date">${ICON.cal}${esc(whenText(r))}</span></span>
+        <span class="lc-main">${kindTag(r)}<b>${esc(r.leave_type)}</b><span class="lc-date">${ICON.cal}${esc(whenText(r))}</span></span>
         ${pill(r.status)}
         ${r.reason ? `<span class="lc-note">${ICON.note}<span>${esc(r.reason)}</span></span>` : ''}
-      </button>`)).join('') : `<div class="app-empty">${ICON.cal}<b>No ${state.kind === 'work' ? 'WFH ' : state.kind === 'leave' ? 'leave ' : ''}requests</b></div>`}
+      </button>`)).join('') : `<div class="app-empty">${ICON.cal}<b>No requests</b></div>`}
     </div>`;
   $$('[data-filter]', body).forEach((b) => b.addEventListener('click', () => { state.filter = b.dataset.filter; drawList(requests); }));
-  $$('[data-kind]', body).forEach((b) => b.addEventListener('click', () => { state.kind = b.dataset.kind; drawList(requests); }));
   $$('.leave-card', body).forEach((c) => c.addEventListener('click', () => openSheet(requests[Number(c.dataset.i)])));
 }
 
