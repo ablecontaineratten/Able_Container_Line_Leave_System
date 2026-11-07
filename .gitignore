@@ -8,3 +8,5 @@ scripts/output/
 scripts/input/
 .cf-auth/
 .google-mail
+google-sa-key.json
+*-sa-key.json

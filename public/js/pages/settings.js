@@ -43,12 +43,14 @@ async function generalTab(body, ctx, canEdit) {
         : '<span><b>✉ Email is off.</b> Connect the Google email service (google_email_services/GUIDE.md) or Brevo (GUIDE.md part 6).</span>'}
       ${canEdit ? '<button class="btn btn-small" id="test-email" type="button">Send test email</button>' : ''}
     </div>
+    <section class="card backup-card" id="backup"></section>
     <form class="card form-grid" id="general">
       ${fields.map((f) => fieldHtml(f, s[f.name])).join('')}
       <p class="muted small full">Weekend days and holidays are set on the <a href="#/calendar">Calendar</a> page. Leave limits are in <a href="#/settings?tab=types">Leave Settings</a>.</p>
       <p class="form-error full" hidden></p>
       ${canEdit ? '<div class="full"><button class="btn btn-primary" type="submit">Save settings</button></div>' : ''}
     </form>`;
+  await backupBox($('#backup', body), canEdit);
   const form = $('#general');
   if (!canEdit) { $$('input, select, textarea', form).forEach((el) => { el.disabled = true; }); return; }
   form.addEventListener('submit', async (e) => {
@@ -67,6 +69,59 @@ async function generalTab(body, ctx, canEdit) {
     try { const r = await post('/settings/test-email'); toast(`Test email ${r.result}.`); } catch (ex) { toast(ex.message, 'error'); }
     test.disabled = false;
   });
+}
+
+// Google Sheet Backup: paste a sheet link → First-time sync → kept up to date after every change; Sync now by hand
+async function backupBox(box, canEdit) {
+  let b;
+  try { b = await get('/backup'); } catch (err) { box.innerHTML = `<p class="error">${esc(err.message)}</p>`; return; }
+  const when = (iso) => (iso ? new Date(iso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '-');
+  const ok = /^OK/.test(b.status);
+  const draw = () => {
+    box.innerHTML = `<div class="card-head"><h2>📊 Google Sheet Backup</h2>
+        ${b.sheet_url ? `<span class="badge ${ok ? 'badge-approved' : 'badge-rejected'}">${ok ? 'Syncing' : 'Last sync failed'}</span>` : '<span class="badge badge-cancelled">Not connected</span>'}</div>
+      ${!b.ready ? `<p class="notice">The Google robot account is not set up yet (Cloudflare secret <code>GOOGLE_SA_KEY</code>). Ask the system admin.</p>` : `
+      <p class="muted small">Every page of the system is copied into the Google Sheet (one tab each: Employees, Departments, Login Accounts, Leave Requests,
+        WFH Requests, Leave Summary, Leave Settings, Holidays, Settings). After the first sync the sheet is updated <b>automatically after every change</b>.
+        Passwords are never copied.</p>
+      <ol class="backup-steps small">
+        <li>Open your Google Sheet → <b>Share</b> → add <code class="robot">${esc(b.robot_email)}</code>
+          <button class="btn btn-small" type="button" id="copy-robot">Copy</button> as <b>Editor</b>.</li>
+        <li>Paste the sheet link below and press <b>First-time sync</b>.</li>
+      </ol>
+      ${b.sheet_url ? `<div class="backup-status">
+          <div><span class="muted small">Connected sheet</span><a href="${esc(b.sheet_url)}" target="_blank" rel="noopener"><b>${esc(b.sheet_title || 'Open the Google Sheet')}</b> ↗</a></div>
+          <div><span class="muted small">Last synced</span><b>${esc(when(b.last_sync))}</b></div>
+          <div><span class="muted small">Result</span><b class="${ok ? '' : 'error'}">${esc(b.status || '-')}</b></div>
+        </div>` : ''}
+      ${canEdit ? `<div class="backup-row">
+          <input type="url" id="sheet-url" placeholder="https://docs.google.com/spreadsheets/d/…" value="${esc(b.sheet_url)}" aria-label="Google Sheet link">
+          <button class="btn btn-primary" type="button" id="first-sync">First-time sync</button>
+        </div>
+        ${b.sheet_url ? `<div class="backup-row"><button class="btn" type="button" id="sync-now">⟳ Sync now</button>
+          <button class="btn btn-danger-outline" type="button" id="stop-sync">Stop syncing</button></div>` : ''}` : ''}`}`;
+    const act = (id, label, fn) => {
+      const btn = $(id, box);
+      if (!btn) return;
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        btn.textContent = label;
+        try { b = await fn(); toast(b.rows !== undefined ? `Synced: ${b.rows} rows.` : 'Done.'); } catch (err) { toast(err.message, 'error'); b = await get('/backup').catch(() => b); }
+        draw();
+      });
+    };
+    const copy = $('#copy-robot', box);
+    if (copy) copy.addEventListener('click', () => { navigator.clipboard.writeText(b.robot_email).then(() => toast('Robot email copied.')); });
+    act('#first-sync', 'Syncing…', () => post('/backup/first-sync', { url: $('#sheet-url', box).value.trim() }));
+    act('#sync-now', 'Syncing…', () => post('/backup/sync'));
+    const stopBtn = $('#stop-sync', box);
+    if (stopBtn) stopBtn.addEventListener('click', async () => {
+      if (!await confirmDialog({ title: 'Stop syncing', message: 'Stop updating the Google Sheet? The sheet and its data stay as they are.', confirmText: 'Stop', danger: true })) return;
+      try { b = await post('/backup/stop'); toast('Syncing stopped.'); } catch (err) { toast(err.message, 'error'); }
+      draw();
+    });
+  };
+  draw();
 }
 
 // Leave Settings: yearly total + short leaves per month, then the leave types

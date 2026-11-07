@@ -12,13 +12,17 @@ import notifyRoutes from './routes/notify.js';
 import summaryRoutes from './routes/summary.js';
 import usageRoutes from './routes/usage.js';
 import workRoutes from './routes/work.js';
+import backupRoutes, { autoSync } from './routes/backup.js';
 
 // route options: auth (true | false | 'optional'), perm (key or list), allowMustChange
-const routes = [...authRoutes, ...requestRoutes, ...peopleRoutes, ...configRoutes, ...formRoutes, ...portalRoutes, ...notifyRoutes, ...summaryRoutes, ...usageRoutes, ...workRoutes].map((r) => {
+const routes = [...authRoutes, ...requestRoutes, ...peopleRoutes, ...configRoutes, ...formRoutes, ...portalRoutes, ...notifyRoutes, ...summaryRoutes, ...usageRoutes, ...workRoutes, ...backupRoutes].map((r) => {
   const keys = [];
   const pattern = r.path.replace(/:(\w+)/g, (_, k) => { keys.push(k); return '([^/]+)'; });
   return { ...r, regex: new RegExp(`^${pattern}/?$`), keys };
 });
+
+// requests that change nothing worth backing up (sign in / out, notifications, photos, passwords, the backup itself)
+const NO_BACKUP = /^\/api\/(backup|auth\/|push|notifications|portal\/(login|logout|password|photo|notifications|push))/;
 
 function match(method, pathname) {
   let pathFound = false;
@@ -50,6 +54,10 @@ export async function handleApi(context) {
       if (route.perm) requirePerm(c.me, route.perm);
     }
     const out = await route.handler(c);
+    // something changed (saved / decided / deleted): refresh the Google Sheet backup in the background
+    if (request.method !== 'GET' && request.method !== 'HEAD' && !NO_BACKUP.test(url.pathname) && !(out instanceof Response && !out.ok)) {
+      context.waitUntil(autoSync(env));
+    }
     return out instanceof Response ? out : json(out ?? { ok: true });
   } catch (err) {
     if (err instanceof HttpError) return json({ error: err.message }, err.status);

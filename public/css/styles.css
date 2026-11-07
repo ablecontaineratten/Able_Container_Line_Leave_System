@@ -816,3 +816,12 @@ img.emp-avatar:hover { transform: scale(1.9); position: relative; z-index: 2; }.
 .half-option b { display: block; }
 .half-option small { color: var(--muted); }
 .half-option:has(input:checked) { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 6%, #fff); box-shadow: inset 4px 0 0 var(--accent); }
+
+/* ---------- Settings: Google Sheet Backup */
+.backup-steps { margin: 6px 0 12px; padding-left: 20px; line-height: 2; }
+.backup-steps .robot { user-select: all; }
+.backup-status { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; padding: 12px 14px; margin-bottom: 12px; border-radius: 10px; background: var(--soft); border-left: 4px solid var(--brand); }
+.backup-status > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.backup-status a { overflow: hidden; text-overflow: ellipsis; }
+.backup-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+.backup-row input { flex: 1 1 320px; }
