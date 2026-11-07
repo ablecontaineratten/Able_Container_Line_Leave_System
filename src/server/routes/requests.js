@@ -183,11 +183,14 @@ async function team(c) {
   const wfhRows = ids.length ? await all(env, `SELECT employee_id, dates FROM work_requests WHERE status = 'Approved' AND work_type = 'Work From Home'
     AND to_date >= ? AND from_date < ? AND employee_id IN (${marks(ids)})`, year.start, year.end, ...ids) : [];
   const wfh = new Map();
+  const weekStart = addDays(date, -((new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7));      // this week's Monday
+  const weekEnd = addDays(weekStart, 6);
   for (const w of wfhRows) {
     const days = w.dates.split(',').filter((d) => d >= year.start && d < year.end);
-    const x = wfh.get(w.employee_id) || { year: 0, month: 0 };
+    const x = wfh.get(w.employee_id) || { year: 0, month: 0, week: 0 };
     x.year += days.length;
     x.month += days.filter((d) => d.slice(0, 7) === date.slice(0, 7)).length;
+    x.week += w.dates.split(',').filter((d) => d >= weekStart && d <= weekEnd).length;
     wfh.set(w.employee_id, x);
   }
   // late arrival messages (inform only): this leave year + this month
@@ -227,6 +230,7 @@ async function team(c) {
         half: own.filter((r) => r.status === 'Approved' && r.day_type === 'Half Day').length,
         wfhYear: (wfh.get(e.id) || {}).year || 0,
         wfhMonth: (wfh.get(e.id) || {}).month || 0,
+        wfhWeek: (wfh.get(e.id) || {}).week || 0,
         lateYear: (lateBy.get(e.id) || {}).year || 0,
         lateMonth: (lateBy.get(e.id) || {}).month || 0,
         shortUsed: own.filter((r) => r.status === 'Approved' && shortNames.has(String(r.leave_type).toLowerCase()) && String(r.from_date).slice(0, 7) === month).length,

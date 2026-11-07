@@ -20,6 +20,12 @@ export default async function render(view, ctx) {
   };
   const over = (v, limit) => limit !== null && limit !== undefined && v > limit;
   const num = (v, limit) => `<b class="${over(v, limit) ? 'neg' : ''}">${esc(v)}</b>`;
+  // WFH column follows the WFH limit: per week / month / year (no limit = this month)
+  const wfhPeriod = ctx.state.settings.wfh_limit_period || 'month';
+  const wfhLimit = ctx.state.settings.wfh_limit_period ? Number(ctx.state.settings.wfh_limit_days) || 0 : 0;
+  const PER = { week: 'Week', month: 'Month', year: 'Year' };
+  const wfhHead = `WFH (${wfhLimit ? `/${wfhLimit}-` : ''}${PER[wfhPeriod]})`;
+  const wfhValue = (e) => (wfhPeriod === 'week' ? e.wfhWeek : wfhPeriod === 'year' ? e.wfhYear : e.wfhMonth);
   const head = (col) => `${shortName(col.name)}${col.allowed !== null && col.allowed !== undefined ? ` (/${col.allowed}-Year)` : ''}`;
 
   // Half days are not shown here (still counted in Annual / Casual and kept in the database).
@@ -29,12 +35,10 @@ export default async function render(view, ctx) {
     casual ? { label: head(casual), cls: 'num', value: (e) => taken(e, casual), render: (e) => num(taken(e, casual), casual.allowed) } : null,
     { label: `${shortName(short.name)}${short.limit ? ` (/${short.limit}-Month)` : ''}`, cls: 'num', value: (e) => e.shortUsed, render: (e) => num(e.shortUsed, short.limit || null) },
     { label: `Total (/${pool}-Year)`, cls: 'num', value: (e) => e.summary.used, render: (e) => num(e.summary.used, pool) },
-    // Work From Home (approved days - not leave)
-    { label: 'WFH (Month)', cls: 'num wfh-col', value: (e) => e.wfhMonth, render: (e) => `<b class="wfh-num">${esc(e.wfhMonth)}</b>` },
-    { label: 'WFH (Year)', cls: 'num wfh-col', value: (e) => e.wfhYear, render: (e) => `<b class="wfh-num">${esc(e.wfhYear)}</b>` },
-    // late arrival days (inform only)
+    // Work From Home (approved days - not leave): one column, for the period chosen in Settings → WFH Settings
+    { label: wfhHead, cls: 'num wfh-col', value: wfhValue, render: (e) => num(wfhValue(e), wfhLimit || null).replace('<b class="', '<b class="wfh-num ') },
+    // late arrival days this month (inform only)
     { label: 'Late (Month)', cls: 'num late-col', value: (e) => e.lateMonth, render: (e) => `<b class="late-num">${esc(e.lateMonth)}</b>` },
-    { label: 'Late (Year)', cls: 'num late-col', value: (e) => e.lateYear, render: (e) => `<b class="late-num">${esc(e.lateYear)}</b>` },
   ].filter(Boolean);
   const deptOptions = departments.filter((d) => me.scopeAll || me.deptIds.includes(d.id));
 
