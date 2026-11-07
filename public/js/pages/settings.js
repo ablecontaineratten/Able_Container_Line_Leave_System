@@ -36,10 +36,7 @@ async function generalTab(body, ctx, canEdit) {
     { name: 'email_from', label: 'Email sender', full: true, help: 'Example: Able Leave <leave@yourcompany.com>. The EMAIL_FROM variable in Cloudflare wins over this.' },
     { name: 'brand_color', label: 'Main color', type: 'color' },
   ];
-  const requestLink = `${s.app_url || location.origin}/request`;
-  body.innerHTML = `<div class="notice notice-action">Employee app:
-      <a href="${esc(requestLink)}" target="_blank" rel="noopener"><b>${esc(requestLink)}</b></a></div>
-    <div class="card email-status">
+  body.innerHTML = `<div class="card email-status">
       ${s.email_service ? `<span><b>✉ Email is on</b> (${esc(s.email_service)}) · sender: ${esc(s.email_from || '-')}</span>`
         : '<span><b>✉ Email is off.</b> Connect the Google email service (google_email_services/GUIDE.md) or Brevo (GUIDE.md part 6).</span>'}
       ${canEdit ? '<button class="btn btn-small" id="test-email" type="button">Send test email</button>' : ''}

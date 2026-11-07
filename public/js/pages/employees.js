@@ -63,8 +63,6 @@ export default async function render(view, ctx) {
 
   view.innerHTML = `${pageHead('Employees', '', `<button class="btn" id="export">Export CSV</button>
       ${canEdit ? '<button class="btn" id="import">Import CSV</button> <button class="btn btn-primary" id="add">Add employee</button>' : ''}`)}
-    <div class="notice notice-action">Employee leave portal: <a href="${location.origin}/request" target="_blank" rel="noopener"><b>${location.origin}/request</b></a>
-      · Username = the employee's <b>email</b> · First password = <b>${DEFAULT_PASSWORD}</b> (they can change it in the portal's Settings ⚙)</div>
     <div class="filters card"><input type="search" id="search" placeholder="Search number, name, email, department…" aria-label="Search"></div>
     <section class="card" id="list"></section>`;
 
