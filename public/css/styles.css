@@ -807,3 +807,12 @@ img.emp-avatar:hover { transform: scale(1.9); position: relative; z-index: 2; }.
 .day-chip input:checked + span { background: var(--accent); border-color: var(--accent); color: #fff; }
 .day-chip input:focus-visible + span { outline: 2px solid var(--brand); outline-offset: 2px; }
 .day-chip input:disabled + span { cursor: default; opacity: .85; }
+
+/* ---------- Leave Settings: half day choice */
+#half-form h2 { margin-bottom: 4px; }
+.half-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin: 12px 0 14px; }
+.half-option { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 12px; cursor: pointer; background: #fff; }
+.half-option input { margin-top: 3px; accent-color: var(--brand); }
+.half-option b { display: block; }
+.half-option small { color: var(--muted); }
+.half-option:has(input:checked) { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 6%, #fff); box-shadow: inset 4px 0 0 var(--accent); }

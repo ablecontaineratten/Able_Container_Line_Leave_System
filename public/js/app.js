@@ -67,7 +67,7 @@ const ROUTES = [
   { path: 'users', label: 'Login accounts', icon: 'key', page: users, perm: 'users.view', group: 'Admin' },
   { path: 'settings', label: 'Settings', icon: 'gear', page: settings, perm: 'settings.view', group: 'Admin' },
   { path: 'access', label: 'Access control', icon: 'shield', page: access, perm: 'access.edit', group: 'Admin' },
-  { path: 'usage', label: 'Usage', icon: 'chart', page: usage, perm: 'access.edit', group: 'Admin' },
+  { path: 'usage', label: 'Usage', icon: 'chart', page: usage, perm: 'access.edit', group: 'Admin', hidden: true },   // not in the menu any more
   { path: 'profile', label: 'My account', icon: 'user', page: profile, hidden: true },
 ];
 

@@ -96,11 +96,28 @@ async function typesTab(body, ctx, canEdit) {
     { label: 'Short leave', cls: 'num', render: (t) => yes(t.is_short) },
     canEdit ? { label: '', cls: 'actions', render: () => '<button class="btn btn-small" data-edit>Edit</button> <button class="btn btn-small btn-danger-outline" data-del>Delete</button>' } : null,
   ].filter(Boolean);
+  // Half day: which leave a half day is taken from (sets "Half day allowed" on Annual / Casual)
+  const annual = rows.find((t) => /annual/i.test(t.name) && !t.is_short);
+  const casual = rows.find((t) => /casual/i.test(t.name) && !t.is_short);
+  const halfNow = annual && casual && annual.allow_half && casual.allow_half ? 'both'
+    : annual && annual.allow_half ? 'annual' : 'casual';
+  const HALF = [
+    ['casual', 'Casual Leave only', 'A half day is taken from Casual Leave (0.5 day).'],
+    ['annual', 'Annual Leave only', 'A half day is taken from Annual Leave (0.5 day).'],
+    ['both', 'Annual or Casual', 'The employee chooses Annual or Casual for the half day.'],
+  ];
   body.innerHTML = `<form class="card form-grid" id="limits">
       ${limits.map((f) => fieldHtml(f, s[f.name])).join('')}
       <p class="form-error full" hidden></p>
       ${canEdit ? '<div class="full"><button class="btn btn-primary" type="submit">Save</button></div>' : ''}
     </form>
+    ${annual && casual ? `<form class="card" id="half-form">
+      <h2>Half day leave</h2>
+      <p class="muted small">Which leave can an employee use for a <b>half day</b>? The employee app shows the "Half day" choice only for these leave types.</p>
+      <div class="half-options">${HALF.map(([v, label, help]) => `<label class="half-option"><input type="radio" name="half" value="${v}" ${v === halfNow ? 'checked' : ''} ${canEdit ? '' : 'disabled'}>
+        <span><b>${label}</b><small>${help}</small></span></label>`).join('')}</div>
+      ${canEdit ? '<button class="btn btn-primary" type="submit">Save</button>' : ''}
+    </form>` : ''}
     <section class="card">
     <div class="card-head"><h2>Leave types</h2><p class="muted">Half days count as 0.5 of the chosen type. Short leave is counted per month.</p>
       ${canEdit ? '<button class="btn btn-primary" id="add">Add leave type</button>' : ''}</div>
@@ -113,6 +130,17 @@ async function typesTab(body, ctx, canEdit) {
     const err = $('.form-error', limitsForm);
     err.hidden = true;
     try { await put('/settings', readForm(limitsForm, limits)); toast('Saved.'); await ctx.reload(); } catch (ex) { err.textContent = ex.message; err.hidden = false; }
+  });
+  const halfForm = $('#half-form', body);
+  if (halfForm && canEdit) halfForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const pick = halfForm.querySelector('input[name=half]:checked').value;
+    try {
+      await put(`/leave-types/${annual.id}`, { ...annual, allow_half: pick !== 'casual' });
+      await put(`/leave-types/${casual.id}`, { ...casual, allow_half: pick !== 'annual' });
+      toast('Half day setting saved.');
+      await ctx.reload();
+    } catch (err) { toast(err.message, 'error'); }
   });
   const done = async (msg) => { toast(msg); await ctx.reload(); };
   const toBody = (v) => ({ ...v, days_per_year: v.days_per_year === '' ? null : v.days_per_year });
