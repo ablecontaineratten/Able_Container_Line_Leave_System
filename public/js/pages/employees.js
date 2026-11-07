@@ -53,7 +53,7 @@ export default async function render(view, ctx) {
     { label: 'No', render: (e) => `<b>${esc(e.emp_no)}</b>` },
     { label: 'Name', render: (e) => `<span class="emp-cell">${empAvatar(e)}<span>${esc(e.name)}${e.designation ? `<div class="muted small">${esc(e.designation)}</div>` : ''}</span></span>` },
     { label: 'Email', render: (e) => `${esc(e.email)}${e.phone ? `<div class="muted small">📞 ${esc(e.phone)}</div>` : ''}` },
-    { label: 'ETF / NIC', render: (e) => `${e.etf_no ? `<div class="small">ETF ${esc(e.etf_no)}</div>` : ''}${e.nic_no ? `<div class="muted small">NIC ${esc(e.nic_no)}</div>` : ''}` },
+    { label: 'ETF / NIC', render: (e) => `${e.etf_no ? `<div>${esc(e.etf_no)}</div>` : ''}${e.nic_no ? `<div class="muted">${esc(e.nic_no)}</div>` : ''}` },
     { label: 'Department', render: (e) => esc(e.department || '-') },
     { label: 'Status', render: (e) => `<span class="badge ${e.status === 'Active' ? 'badge-approved' : 'badge-cancelled'}">${esc(e.status)}</span>` },
     { label: 'Portal', render: (e) => (!e.email ? '<span class="muted small">No email - cannot sign in</span>'
@@ -64,7 +64,7 @@ export default async function render(view, ctx) {
   view.innerHTML = `${pageHead('Employees', '', `<button class="btn" id="export">Export CSV</button>
       ${canEdit ? '<button class="btn" id="import">Import CSV</button> <button class="btn btn-primary" id="add">Add employee</button>' : ''}`)}
     <div class="filters card"><input type="search" id="search" placeholder="Search number, name, email, department…" aria-label="Search"></div>
-    <section class="card" id="list"></section>`;
+    <section class="card emp-list" id="list"></section>`;
 
   const reload = () => render(view, ctx);
   const draw = (list) => {

@@ -862,3 +862,23 @@ th.late-col, td.late-col { background: #fff8ec; }
 .chip-x { margin-left: 4px; padding: 0 5px; border: 0; border-radius: 50%; background: var(--accent); color: #fff; font-size: .68rem; font-weight: 800; line-height: 1.5; cursor: pointer; vertical-align: middle; }
 .chip-x:hover { filter: brightness(1.15); }
 .cal-edit-note { margin: 0 0 12px; border-left: 4px solid var(--accent); }
+
+/* ---------- Employees table: fits the page (no sideways scrolling), smaller text */
+.emp-list .table-wrap { overflow-x: visible; margin: 0; }
+.emp-list .table { table-layout: fixed; font-size: .8rem; }
+.emp-list .table th { font-size: .68rem; padding: 8px 6px; white-space: normal; }
+.emp-list .table td { padding: 8px 6px; overflow-wrap: anywhere; }
+.emp-list .table th:nth-child(1) { width: 7%; }
+.emp-list .table th:nth-child(2) { width: 22%; }
+.emp-list .table th:nth-child(3) { width: 19%; }
+.emp-list .table th:nth-child(4) { width: 11%; }
+.emp-list .table th:nth-child(5) { width: 10%; }
+.emp-list .table th:nth-child(6) { width: 7%; }
+.emp-list .table th:nth-child(7) { width: 11%; }
+.emp-list .table td.actions { white-space: normal; text-align: right; }
+.emp-list .table td.actions .btn { margin: 0 0 4px 2px; padding: 3px 8px; font-size: .74rem; }
+.emp-list .badge { white-space: normal; font-size: .7rem; }
+.emp-list .emp-avatar { width: 30px; height: 30px; font-size: .7rem; flex: none; }
+.emp-list .emp-cell { gap: 8px; }
+.emp-list .emp-cell { display: flex; align-items: flex-start; min-width: 0; }
+.emp-list .emp-cell > span:last-child { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
