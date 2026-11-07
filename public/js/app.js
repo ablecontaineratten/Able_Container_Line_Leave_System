@@ -56,7 +56,7 @@ const ROUTES = [
   { path: 'apply', label: 'Request Leave', icon: 'plus', page: apply, perm: 'leave.apply', employee: true },
   { path: 'approvals', label: 'Approvals', icon: 'check', page: approvals, perm: ['approve.decide', 'requests.manage'], badge: 'leave' },
   // Work From Home / Onsite requests (not leave)
-  { path: 'work', label: 'WFH Request', icon: 'home', page: work, perm: ['approve.decide', 'requests.manage', 'requests.view'], badge: 'work' },
+  { path: 'work', label: 'WFH Request', icon: 'home', page: work, perm: ['approve.decide', 'requests.manage'], badge: 'work' },
   { path: 'requests', label: 'All requests', icon: 'inbox', page: requests, perm: 'requests.view' },
   { path: 'calendar', label: 'Calendar', icon: 'calendar', page: calendar, perm: 'calendar.view' },
   { path: 'team', label: 'Leave Summary', icon: 'users', page: team, perm: 'team.view' },
