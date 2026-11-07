@@ -10,6 +10,7 @@ import { clean, isDate, nowIso, todayIn } from '../utils.js';
 
 const HALF = 'Half Day';
 const WFH = 'WFH';
+const LATE = 'Late';
 
 // Which grid row a request belongs to
 function rowKey(r, shortNames) {
@@ -51,6 +52,10 @@ async function grid(c) {
     const cell = ((cells[w.employee_id] = cells[w.employee_id] || {})[WFH] = cells[w.employee_id][WFH] || []);
     cell.push(...w.dates.split(',').filter((d) => d >= year.start && d < year.end));
   }
+  // Late arrivals (inform only): the days each employee said they would be late
+  const late = ids.length ? await all(env, `SELECT employee_id, date FROM late_arrivals WHERE date >= ? AND date < ? AND employee_id IN (${marks(ids)})`,
+    year.start, year.end, ...ids) : [];
+  for (const l of late) ((cells[l.employee_id] = cells[l.employee_id] || {})[LATE] = cells[l.employee_id][LATE] || []).push(l.date);
   for (const e of Object.values(cells)) for (const k of Object.keys(e)) e[k] = [...new Set(e[k])].sort();
 
   // the chart shows only Casual, Annual, Half Day and Short Leave
@@ -68,6 +73,7 @@ async function grid(c) {
       halfTypes.length && { key: HALF, label: 'Half Day', kind: 'half' },
       short && { key: short.name, label: label(short.name), kind: 'short' },
       { key: WFH, label: 'WFH', kind: 'wfh' },          // shown only - WFH is requested and approved in its own flow
+      { key: LATE, label: 'Late', kind: 'late' },       // shown only - late arrival messages (inform only)
     ].filter(Boolean),
   };
 }

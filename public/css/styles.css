@@ -850,3 +850,9 @@ th.wfh-col, td.wfh-col { background: color-mix(in srgb, var(--brand) 5%, transpa
 .late-date { display: inline-flex; align-items: center; gap: 6px; font-size: .85rem; color: var(--muted); font-weight: 600; }
 .late-msg { display: block; max-width: 520px; white-space: pre-wrap; }
 .late-more { display: flex; justify-content: center; margin-top: 12px; }
+/* Chart + Summary: late arrivals (inform only) in amber */
+.lc .lc-late th { color: #b35c00; }
+.lc .lc-late td { background: #fff8ec; color: #b35c00; font-weight: 600; }
+.lc .lc-late.lc-start th, .lc .lc-late.lc-start td { border-top: 2px solid #e67700; }
+.late-num { color: #b35c00; }
+th.late-col, td.late-col { background: #fff8ec; }

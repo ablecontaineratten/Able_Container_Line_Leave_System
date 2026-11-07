@@ -32,10 +32,13 @@ export default async function render(view, ctx) {
     // Work From Home (approved days - not leave)
     { label: 'WFH (Month)', cls: 'num wfh-col', value: (e) => e.wfhMonth, render: (e) => `<b class="wfh-num">${esc(e.wfhMonth)}</b>` },
     { label: 'WFH (Year)', cls: 'num wfh-col', value: (e) => e.wfhYear, render: (e) => `<b class="wfh-num">${esc(e.wfhYear)}</b>` },
+    // late arrival days (inform only)
+    { label: 'Late (Month)', cls: 'num late-col', value: (e) => e.lateMonth, render: (e) => `<b class="late-num">${esc(e.lateMonth)}</b>` },
+    { label: 'Late (Year)', cls: 'num late-col', value: (e) => e.lateYear, render: (e) => `<b class="late-num">${esc(e.lateYear)}</b>` },
   ].filter(Boolean);
   const deptOptions = departments.filter((d) => me.scopeAll || me.deptIds.includes(d.id));
 
-  view.innerHTML = `${pageHead('Leave/Shift Summary', '', '<button class="btn" id="export">Export CSV</button>')}
+  view.innerHTML = `${pageHead('Summary', '', '<button class="btn" id="export">Export CSV</button>')}
     ${deptOptions.length > 1 ? `<div class="filters card"><select id="dept" aria-label="Department"><option value="">All departments</option>${deptOptions.map((d) =>
       `<option value="${d.id}" ${String(d.id) === dept ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}</select></div>` : ''}
     <section class="card">${tableHtml(columns, data.employees, { empty: 'No employees.' })}</section>`;

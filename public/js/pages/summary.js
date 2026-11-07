@@ -123,8 +123,8 @@ export default async function render(view, ctx) {
   const body = rows.map((r) => {
     if (r.kind === 'wfh' && period) return wfhRows(r);
     const lines = Math.max(1, ...employees.map((e) => cellDates(e, r.key).length));
-    const wfh = r.kind === 'wfh';          // WFH row: shown only (requested + approved in the WFH flow)
-    return Array.from({ length: lines }, (_, i) => `<tr class="${i === 0 ? 'lc-start' : ''} ${wfh ? 'lc-wfh' : ''}">
+    const wfh = r.kind === 'wfh' || r.kind === 'late';    // WFH + Late rows: shown only (not edited in the chart)
+    return Array.from({ length: lines }, (_, i) => `<tr class="${i === 0 ? 'lc-start' : ''} ${r.kind === 'wfh' ? 'lc-wfh' : ''} ${r.kind === 'late' ? 'lc-late' : ''}">
       <th>${i === 0 ? esc(r.label) : ''}</th>
       ${employees.map((e) => {
         const d = cellDates(e, r.key)[i];
@@ -132,7 +132,7 @@ export default async function render(view, ctx) {
       }).join('')}</tr>`).join('');
   }).join('');
 
-  view.innerHTML = `${pageHead('Leave/Shift Chart', `${esc(fmtDate(year.start))} – ${esc(fmtDate(addDays(year.end, -1)))}`,
+  view.innerHTML = `${pageHead('Chart', `${esc(fmtDate(year.start))} – ${esc(fmtDate(addDays(year.end, -1)))}`,
     `<button class="btn" id="export">Export CSV</button>${canEdit ? ' <button class="btn btn-primary" id="bulk">Bulk add</button>' : ''}`)}
     <div class="filters card">
       <a class="btn btn-small" href="#/summary${qs({ department_id: dept, date: addDays(year.start, -1) })}">‹ Previous year</a>
@@ -210,7 +210,7 @@ export default async function render(view, ctx) {
     const m = openModal({
       title: 'Bulk add leave dates', wide: true,
       body: `<div class="form-grid">
-          <label class="field"><span>Leave type</span><select name="type">${rows.filter((r) => r.kind !== 'wfh').map((r) => `<option value="${esc(r.key)}">${esc(r.label)}</option>`).join('')}</select></label>
+          <label class="field"><span>Leave type</span><select name="type">${rows.filter((r) => r.kind !== 'wfh' && r.kind !== 'late').map((r) => `<option value="${esc(r.key)}">${esc(r.label)}</option>`).join('')}</select></label>
           <div id="half-wrap" hidden>${halfSelect(halfTypes)}</div>
         </div>
         <div class="field" style="margin-top:12px"><span>Employees <button type="button" class="link" id="all-emps">(select all)</button></span>

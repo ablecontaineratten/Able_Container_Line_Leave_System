@@ -190,6 +190,19 @@ async function team(c) {
     x.month += days.filter((d) => d.slice(0, 7) === date.slice(0, 7)).length;
     wfh.set(w.employee_id, x);
   }
+  // late arrival messages (inform only): this leave year + this month
+  const lateRows = ids.length ? await all(env, `SELECT employee_id, date FROM late_arrivals WHERE date >= ? AND date < ? AND employee_id IN (${marks(ids)})`,
+    year.start, year.end, ...ids) : [];
+  const lateBy = new Map();
+  for (const l of lateRows) {
+    const x = lateBy.get(l.employee_id) || { year: 0, month: 0, days: new Set() };
+    if (!x.days.has(l.date)) {             // several messages on one day = one late day
+      x.days.add(l.date);
+      x.year += 1;
+      if (l.date.slice(0, 7) === date.slice(0, 7)) x.month += 1;
+    }
+    lateBy.set(l.employee_id, x);
+  }
   const shortNames = new Set(types.filter((t) => t.is_short).map((t) => t.name.toLowerCase()));
   const byEmp = new Map();
   for (const r of rows) {
@@ -214,6 +227,8 @@ async function team(c) {
         half: own.filter((r) => r.status === 'Approved' && r.day_type === 'Half Day').length,
         wfhYear: (wfh.get(e.id) || {}).year || 0,
         wfhMonth: (wfh.get(e.id) || {}).month || 0,
+        lateYear: (lateBy.get(e.id) || {}).year || 0,
+        lateMonth: (lateBy.get(e.id) || {}).month || 0,
         shortUsed: own.filter((r) => r.status === 'Approved' && shortNames.has(String(r.leave_type).toLowerCase()) && String(r.from_date).slice(0, 7) === month).length,
       };
     }),
