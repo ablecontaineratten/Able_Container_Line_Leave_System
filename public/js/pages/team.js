@@ -1,4 +1,4 @@
-﻿// Leave Summary: approved leave TAKEN per employee - Annual, Casual, Short and Total.
+// Leave/Shift Summary: approved leave TAKEN per employee - Annual, Casual, Short, Total - and WFH days (month / year).
 // The header numbers (/14-Year, /7-Year, /2-Month, /21-Year) come from Settings → Leave types.
 import { get, qs } from '../api.js';
 import { downloadCsv, esc, pageHead, tableHtml } from '../ui.js';
@@ -29,17 +29,20 @@ export default async function render(view, ctx) {
     casual ? { label: head(casual), cls: 'num', value: (e) => taken(e, casual), render: (e) => num(taken(e, casual), casual.allowed) } : null,
     { label: `${shortName(short.name)}${short.limit ? ` (/${short.limit}-Month)` : ''}`, cls: 'num', value: (e) => e.shortUsed, render: (e) => num(e.shortUsed, short.limit || null) },
     { label: `Total (/${pool}-Year)`, cls: 'num', value: (e) => e.summary.used, render: (e) => num(e.summary.used, pool) },
+    // Work From Home (approved days - not leave)
+    { label: 'WFH (Month)', cls: 'num wfh-col', value: (e) => e.wfhMonth, render: (e) => `<b class="wfh-num">${esc(e.wfhMonth)}</b>` },
+    { label: 'WFH (Year)', cls: 'num wfh-col', value: (e) => e.wfhYear, render: (e) => `<b class="wfh-num">${esc(e.wfhYear)}</b>` },
   ].filter(Boolean);
   const deptOptions = departments.filter((d) => me.scopeAll || me.deptIds.includes(d.id));
 
-  view.innerHTML = `${pageHead('Leave Summary', '', '<button class="btn" id="export">Export CSV</button>')}
+  view.innerHTML = `${pageHead('Leave/Shift Summary', '', '<button class="btn" id="export">Export CSV</button>')}
     ${deptOptions.length > 1 ? `<div class="filters card"><select id="dept" aria-label="Department"><option value="">All departments</option>${deptOptions.map((d) =>
       `<option value="${d.id}" ${String(d.id) === dept ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}</select></div>` : ''}
     <section class="card">${tableHtml(columns, data.employees, { empty: 'No employees.' })}</section>`;
 
   const sel = view.querySelector('#dept');
   if (sel) sel.addEventListener('change', () => ctx.go(`team${qs({ department_id: sel.value })}`));
-  view.querySelector('#export').addEventListener('click', () => downloadCsv(`leave-summary-${ctx.state.today}.csv`,
+  view.querySelector('#export').addEventListener('click', () => downloadCsv(`leave-shift-summary-${ctx.state.today}.csv`,
     columns.map((c) => c.label),
     data.employees.map((e) => [e.name, ...columns.slice(1).map((c) => c.value(e))])));
 }

@@ -828,3 +828,10 @@ img.emp-avatar:hover { transform: scale(1.9); position: relative; z-index: 2; }.
 .backup-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
 .backup-schedule { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--line); }
 .backup-schedule .field { min-width: 200px; }
+
+/* ---------- Leave/Shift Chart + Summary: WFH (not leave) in logo blue */
+.lc .lc-wfh th { color: var(--brand); }
+.lc .lc-wfh td { background: color-mix(in srgb, var(--brand) 6%, #fff); color: var(--brand); font-weight: 600; }
+.lc .lc-wfh.lc-start th, .lc .lc-wfh.lc-start td { border-top: 2px solid var(--brand); }
+.wfh-num { color: var(--brand); }
+th.wfh-col, td.wfh-col { background: color-mix(in srgb, var(--brand) 5%, transparent); }

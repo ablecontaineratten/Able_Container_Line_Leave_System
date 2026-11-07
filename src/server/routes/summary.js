@@ -9,6 +9,7 @@ import { randomHex } from '../auth.js';
 import { clean, isDate, nowIso, todayIn } from '../utils.js';
 
 const HALF = 'Half Day';
+const WFH = 'WFH';
 
 // Which grid row a request belongs to
 function rowKey(r, shortNames) {
@@ -43,6 +44,13 @@ async function grid(c) {
     const cell = ((cells[r.employee_id] = cells[r.employee_id] || {})[key] = cells[r.employee_id][key] || []);
     cell.push(...dates);
   }
+  // WFH (not leave): approved Work From Home days in the same year
+  const work = ids.length ? await all(env, `SELECT employee_id, dates FROM work_requests WHERE status = 'Approved' AND work_type = 'Work From Home'
+    AND to_date >= ? AND from_date < ? AND employee_id IN (${marks(ids)})`, year.start, year.end, ...ids) : [];
+  for (const w of work) {
+    const cell = ((cells[w.employee_id] = cells[w.employee_id] || {})[WFH] = cells[w.employee_id][WFH] || []);
+    cell.push(...w.dates.split(',').filter((d) => d >= year.start && d < year.end));
+  }
   for (const e of Object.values(cells)) for (const k of Object.keys(e)) e[k] = [...new Set(e[k])].sort();
 
   // the chart shows only Casual, Annual, Half Day and Short Leave
@@ -59,6 +67,7 @@ async function grid(c) {
       annual && { key: annual.name, label: label(annual.name), kind: 'full' },
       halfTypes.length && { key: HALF, label: 'Half Day', kind: 'half' },
       short && { key: short.name, label: label(short.name), kind: 'short' },
+      { key: WFH, label: 'WFH', kind: 'wfh' },          // shown only - WFH is requested and approved in its own flow
     ].filter(Boolean),
   };
 }

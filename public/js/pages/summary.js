@@ -1,4 +1,4 @@
-// Leave Chart: employees across, Casual / Annual / Half Day / Short going down, one date per cell (27-Feb).
+// Leave/Shift Chart: employees across, Casual / Annual / Half Day / Short / WFH going down, one date per cell (27-Feb).
 // With "summary.edit": click an employee's cell to add (type, pick or From-To) or remove dates; "Bulk add" for many employees.
 import { get, post, qs } from '../api.js';
 import { $, $$, addDays, downloadCsv, esc, fmtDate, openModal, pageHead, toast } from '../ui.js';
@@ -92,15 +92,16 @@ export default async function render(view, ctx) {
   // one block per leave type; as many lines as the employee with the most dates (at least 1)
   const body = rows.map((r) => {
     const lines = Math.max(1, ...employees.map((e) => cellDates(e, r.key).length));
-    return Array.from({ length: lines }, (_, i) => `<tr class="${i === 0 ? 'lc-start' : ''}">
+    const wfh = r.kind === 'wfh';          // WFH row: shown only (requested + approved in the WFH flow)
+    return Array.from({ length: lines }, (_, i) => `<tr class="${i === 0 ? 'lc-start' : ''} ${wfh ? 'lc-wfh' : ''}">
       <th>${i === 0 ? esc(r.label) : ''}</th>
       ${employees.map((e) => {
         const d = cellDates(e, r.key)[i];
-        return `<td class="${canEdit ? 'lc-edit' : ''}" data-e="${e.id}" data-k="${esc(r.key)}">${d ? dMon(d) : ''}</td>`;
+        return `<td class="${canEdit && !wfh ? 'lc-edit' : ''}" data-e="${e.id}" data-k="${esc(r.key)}">${d ? dMon(d) : ''}</td>`;
       }).join('')}</tr>`).join('');
   }).join('');
 
-  view.innerHTML = `${pageHead('Leave Chart', `${esc(fmtDate(year.start))} – ${esc(fmtDate(addDays(year.end, -1)))}`,
+  view.innerHTML = `${pageHead('Leave/Shift Chart', `${esc(fmtDate(year.start))} – ${esc(fmtDate(addDays(year.end, -1)))}`,
     `<button class="btn" id="export">Export CSV</button>${canEdit ? ' <button class="btn btn-primary" id="bulk">Bulk add</button>' : ''}`)}
     <div class="filters card">
       <a class="btn btn-small" href="#/summary${qs({ department_id: dept, date: addDays(year.start, -1) })}">‹ Previous year</a>
@@ -123,7 +124,7 @@ export default async function render(view, ctx) {
       const lines = Math.max(1, ...employees.map((e) => cellDates(e, r.key).length));
       for (let i = 0; i < lines; i++) out.push([i === 0 ? r.label : '', ...employees.map((e) => { const d = cellDates(e, r.key)[i]; return d ? dMon(d) : ''; })]);
     });
-    downloadCsv(`leave-chart-${year.start.slice(0, 4)}.csv`, ['', ...employees.map((e) => `${e.name} (${e.emp_no})`)], out);
+    downloadCsv(`leave-shift-chart-${year.start.slice(0, 4)}.csv`, ['', ...employees.map((e) => `${e.name} (${e.emp_no})`)], out);
   });
   if (!canEdit) return;
 
@@ -174,7 +175,7 @@ export default async function render(view, ctx) {
     const m = openModal({
       title: 'Bulk add leave dates', wide: true,
       body: `<div class="form-grid">
-          <label class="field"><span>Leave type</span><select name="type">${rows.map((r) => `<option value="${esc(r.key)}">${esc(r.label)}</option>`).join('')}</select></label>
+          <label class="field"><span>Leave type</span><select name="type">${rows.filter((r) => r.kind !== 'wfh').map((r) => `<option value="${esc(r.key)}">${esc(r.label)}</option>`).join('')}</select></label>
           <div id="half-wrap" hidden>${halfSelect(halfTypes)}</div>
         </div>
         <div class="field" style="margin-top:12px"><span>Employees <button type="button" class="link" id="all-emps">(select all)</button></span>

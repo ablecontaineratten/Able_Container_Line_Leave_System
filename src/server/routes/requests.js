@@ -179,6 +179,17 @@ async function team(c) {
   const rows = ids.length ? await all(env, `SELECT employee_id, leave_type, days, status, day_type, from_date FROM leave_requests
     WHERE status IN ('Approved', 'Pending') AND from_date >= ? AND from_date < ? AND employee_id IN (${marks(ids)})`,
     year.start, year.end, ...ids) : [];
+  // approved WFH days (not leave): this leave year + this month, per employee
+  const wfhRows = ids.length ? await all(env, `SELECT employee_id, dates FROM work_requests WHERE status = 'Approved' AND work_type = 'Work From Home'
+    AND to_date >= ? AND from_date < ? AND employee_id IN (${marks(ids)})`, year.start, year.end, ...ids) : [];
+  const wfh = new Map();
+  for (const w of wfhRows) {
+    const days = w.dates.split(',').filter((d) => d >= year.start && d < year.end);
+    const x = wfh.get(w.employee_id) || { year: 0, month: 0 };
+    x.year += days.length;
+    x.month += days.filter((d) => d.slice(0, 7) === date.slice(0, 7)).length;
+    wfh.set(w.employee_id, x);
+  }
   const shortNames = new Set(types.filter((t) => t.is_short).map((t) => t.name.toLowerCase()));
   const byEmp = new Map();
   for (const r of rows) {
@@ -201,6 +212,8 @@ async function team(c) {
         ...e,
         summary: computeSummary(types, settings, own, year),
         half: own.filter((r) => r.status === 'Approved' && r.day_type === 'Half Day').length,
+        wfhYear: (wfh.get(e.id) || {}).year || 0,
+        wfhMonth: (wfh.get(e.id) || {}).month || 0,
         shortUsed: own.filter((r) => r.status === 'Approved' && shortNames.has(String(r.leave_type).toLowerCase()) && String(r.from_date).slice(0, 7) === month).length,
       };
     }),
