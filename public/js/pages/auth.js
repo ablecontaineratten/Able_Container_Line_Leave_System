@@ -11,11 +11,11 @@ function frame(root, brand, title, sub, inner) {
     <img class="trial-stamp auth3-trial" src="/img/trial-stamp.svg" alt="Trial version">
     <main class="auth3-box">
       <div class="auth3-logo" role="img" aria-label="${company} logo"><img src="/img/logo-white.png" alt=""><span class="auth3-shine"></span></div>
-      <p class="auth3-tag">Leave Management System</p>
+      <p class="auth3-tag">Leave and Shift Management System</p>
       <h1>${esc(title)}</h1>${sub ? `<p class="auth3-sub">${sub}</p>` : ''}
       ${inner}
     </main>
-    <p class="auth3-foot">© ${new Date().getFullYear()} ${company} · Online leave management system</p>
+    <p class="auth3-foot">© ${new Date().getFullYear()} ${company} · Leave and Shift Management System</p>
   </div>`;
   const v = root.querySelector('video');
   if (v) v.play().catch(() => {});

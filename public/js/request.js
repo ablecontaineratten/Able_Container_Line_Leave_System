@@ -6,7 +6,7 @@ import { enablePush, PUSH_HELP, pushState, registerWorker, resyncPush } from './
 const root = $('#root');
 const newId = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}-x`);
 let requestId = newId();          // same id for retries of one request, so it is never saved twice
-const state = { company_name: '', today: '', employee: null, data: null, filter: 'all' };
+const state = { company_name: '', today: '', employee: null, data: null, filter: 'all', kind: 'all' };
 
 const svg = (d, extra = '') => `<svg viewBox="0 0 24 24" aria-hidden="true" ${extra}>${d}</svg>`;
 const ICON = {
@@ -115,7 +115,7 @@ function showLogin(notice = '') {
       <div class="rq-login-brand">
         <div class="rq-login-logo"><img src="/img/logo-full.png" alt="${esc(state.company_name)} logo"></div>
         <div class="rq-login-company">${esc(state.company_name)}</div>
-        <div class="rq-login-portal">Employee Leave Portal</div>
+        <div class="rq-login-portal">Leave and Shift Management System</div>
       </div>
       <form class="rq-login-form" id="login-form" novalidate>
         <h1>Sign in</h1>
@@ -306,9 +306,14 @@ function drawList(requests) {
   if (!body) return;
   const pending = requests.filter((r) => r.status === 'Pending').length;
   const tabs = [['all', 'All', ICON.list], ['Pending', 'Pending', ICON.clock], ['Approved', 'Approved', ICON.check]];
-  const rows = state.filter === 'all' ? requests : requests.filter((r) => r.status === state.filter);
+  // second row: All / Leave / WFH (inside each status tab)
+  const kinds = [['all', 'All'], ['leave', 'Leave'], ['work', 'WFH']];
+  const byStatus = state.filter === 'all' ? requests : requests.filter((r) => r.status === state.filter);
+  const rows = state.kind === 'all' ? byStatus : byStatus.filter((r) => r.kind === state.kind);
+  const count = (k) => (k === 'all' ? byStatus.length : byStatus.filter((r) => r.kind === k).length);
   body.innerHTML = `<div class="seg">${tabs.map(([k, label, icon]) => `<button type="button" data-filter="${k}" class="${state.filter === k ? 'on' : ''}">
       ${icon}<span>${label}</span>${k === 'Pending' && pending ? `<em>${pending}</em>` : ''}</button>`).join('')}</div>
+    <div class="kind-seg">${kinds.map(([k, label]) => `<button type="button" data-kind="${k}" class="${k} ${state.kind === k ? 'on' : ''}">${label} <small>${count(k)}</small></button>`).join('')}</div>
     <div class="leave-list">${rows.length ? rows.map((r, i) => (r.kind === 'work' ? `
       <button class="leave-card work-card ${WORK[r.work_type].key}" type="button" data-i="${requests.indexOf(r)}" style="--i:${Math.min(i, 8)}">
         <span class="lc-icon wk-${WORK[r.work_type].key}">${WORK[r.work_type].icon}</span>
@@ -321,9 +326,10 @@ function drawList(requests) {
         <span class="lc-main"><b>${esc(r.leave_type)}</b><span class="lc-date">${ICON.cal}${esc(whenText(r))}</span></span>
         ${pill(r.status)}
         ${r.reason ? `<span class="lc-note">${ICON.note}<span>${esc(r.reason)}</span></span>` : ''}
-      </button>`)).join('') : `<div class="app-empty">${ICON.cal}<b>No requests</b></div>`}
+      </button>`)).join('') : `<div class="app-empty">${ICON.cal}<b>No ${state.kind === 'work' ? 'WFH ' : state.kind === 'leave' ? 'leave ' : ''}requests</b></div>`}
     </div>`;
   $$('[data-filter]', body).forEach((b) => b.addEventListener('click', () => { state.filter = b.dataset.filter; drawList(requests); }));
+  $$('[data-kind]', body).forEach((b) => b.addEventListener('click', () => { state.kind = b.dataset.kind; drawList(requests); }));
   $$('.leave-card', body).forEach((c) => c.addEventListener('click', () => openSheet(requests[Number(c.dataset.i)])));
 }
 
@@ -725,14 +731,14 @@ function footer() {
   if ($('.rq-foot')) return;
   const f = document.createElement('footer');
   f.className = 'rq-foot';
-  f.textContent = `© ${state.today.slice(0, 4)} ${state.company_name} · Leave Management System`;
+  f.textContent = `© ${state.today.slice(0, 4)} ${state.company_name} · Leave and Shift Management System`;
   document.querySelector('.rq-wrap').after(f);
 }
 
 async function start() {
   try {
     Object.assign(state, await fetch('/api/portal/brand').then((r) => r.json()));
-    document.title = 'Leave Request';
+    document.title = 'Leave and Shift Management System';
     footer();
     const res = await fetch('/api/portal/me');
     if (res.status === 401) return showLogin();

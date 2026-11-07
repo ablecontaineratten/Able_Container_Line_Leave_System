@@ -1,6 +1,6 @@
 {
-  "name": "Able Container Line Leave System",
-  "short_name": "Leave System",
+  "name": "Able Container Line Leave and Shift Management System",
+  "short_name": "Leave and Shift",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

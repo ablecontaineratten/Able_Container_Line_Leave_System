@@ -9,7 +9,7 @@ import { layout, sendEmail } from '../email.js';
 import { clean, esc, isEmail, lower } from '../utils.js';
 
 // ---------------------------------------------------------------- employees
-const EMPLOYEE_SQL = `SELECT e.id, e.emp_no, e.name, e.email, e.department_id, d.name AS department, e.status, e.designation,
+const EMPLOYEE_SQL = `SELECT e.id, e.emp_no, e.name, e.email, e.department_id, d.name AS department, e.status, e.designation, e.etf_no, e.nic_no, e.phone,
   (e.portal_hash <> '') AS own_password, e.portal_last_login, e.photo_at,
   (SELECT u.id FROM users u WHERE e.email <> '' AND u.email = e.email COLLATE NOCASE) AS user_id
   FROM employees e LEFT JOIN departments d ON d.id = e.department_id`;
@@ -57,7 +57,14 @@ function employeeInput(c, b) {
     department_id: Number(b.department_id) || null,
     status: b.status === 'Inactive' ? 'Inactive' : 'Active',
     designation: clean(b.designation).replace(/\s+/g, ' ').slice(0, 80),
+    etf_no: clean(b.etf_no).toUpperCase().replace(/\s+/g, ''),
+    nic_no: clean(b.nic_no).toUpperCase().replace(/\s+/g, ''),
+    phone: clean(b.phone).replace(/\s+/g, ' '),
   };
+  if (v.etf_no && !/^[A-Z0-9/-]{1,20}$/.test(v.etf_no)) fail(400, 'ETF number: use letters and numbers only (max 20).');
+  // Sri Lankan NIC: old 9 digits + V / X (e.g. 851234567V), new 12 digits (e.g. 198512345678)
+  if (v.nic_no && !/^(\d{9}[VX]|\d{12})$/.test(v.nic_no)) fail(400, 'NIC number must be 9 digits + V / X (old) or 12 digits (new).');
+  if (v.phone && !/^\+?[\d\s-]{9,16}$/.test(v.phone)) fail(400, 'Phone number is not valid (e.g. 077 123 4567 or +94 77 123 4567).');
   if (!v.emp_no || v.emp_no.length > 30) fail(400, 'Employee number is required.');
   if (!v.name || v.name.length > 100) fail(400, 'Name is required.');
   if (v.email && !isEmail(v.email)) fail(400, 'Email is not valid.');
@@ -69,14 +76,16 @@ function employeeInput(c, b) {
 async function checkEmployeeUnique(env, v, id = 0) {
   if (await first(env, 'SELECT id FROM employees WHERE emp_no = ? COLLATE NOCASE AND id <> ?', v.emp_no, id)) fail(400, `Employee number ${v.emp_no} is already used.`);
   if (v.email && await first(env, 'SELECT id FROM employees WHERE email = ? COLLATE NOCASE AND id <> ?', v.email, id)) fail(400, `Email ${v.email} is already used by another employee.`);
+  if (v.nic_no && await first(env, 'SELECT id FROM employees WHERE nic_no = ? AND id <> ?', v.nic_no, id)) fail(400, `NIC ${v.nic_no} is already used by another employee.`);
+  if (v.etf_no && await first(env, 'SELECT id FROM employees WHERE etf_no = ? AND id <> ?', v.etf_no, id)) fail(400, `ETF number ${v.etf_no} is already used by another employee.`);
 }
 
 async function createEmployee(c) {
   const v = employeeInput(c, await readJson(c.request));
   v.designation = await listSpelling(c.env, v.designation);
   await checkEmployeeUnique(c.env, v);
-  const res = await run(c.env, 'INSERT INTO employees (emp_no, name, email, department_id, status, designation) VALUES (?, ?, ?, ?, ?, ?)',
-    v.emp_no, v.name, v.email, v.department_id, v.status, v.designation);
+  const res = await run(c.env, 'INSERT INTO employees (emp_no, name, email, department_id, status, designation, etf_no, nic_no, phone) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    v.emp_no, v.name, v.email, v.department_id, v.status, v.designation, v.etf_no, v.nic_no, v.phone);
   await batch(c.env, [rememberDesignation(c.env, v.designation)]);
   return { id: res.meta.last_row_id };
 }
@@ -91,8 +100,8 @@ async function updateEmployee(c) {
   await checkEmployeeUnique(c.env, v, id);
   const dept = await first(c.env, 'SELECT name FROM departments WHERE id = ?', v.department_id);
   await batch(c.env, [
-    stmt(c.env, 'UPDATE employees SET emp_no = ?, name = ?, email = ?, department_id = ?, status = ?, designation = ? WHERE id = ?',
-      v.emp_no, v.name, v.email, v.department_id, v.status, v.designation, id),
+    stmt(c.env, 'UPDATE employees SET emp_no = ?, name = ?, email = ?, department_id = ?, status = ?, designation = ?, etf_no = ?, nic_no = ?, phone = ? WHERE id = ?',
+      v.emp_no, v.name, v.email, v.department_id, v.status, v.designation, v.etf_no, v.nic_no, v.phone, id),
     rememberDesignation(c.env, v.designation),
     // keep the requests in line with the employee record
     stmt(c.env, 'UPDATE leave_requests SET emp_no = ?, emp_name = ?, emp_email = ? WHERE employee_id = ?', v.emp_no, v.name, v.email, id),
@@ -277,8 +286,8 @@ async function welcome(c, user, password) {
   const settings = await getSettings(c.env);
   const url = settings.app_url || c.origin;
   return sendEmail(c.env, settings, {
-    to: user.email, subject: `Your ${settings.company_name} Leave System account`,
-    html: layout(settings, `<p>Hi ${esc(user.name)},</p><p>An account was made for you in the Leave System.</p>
+    to: user.email, subject: `Your ${settings.company_name} Leave and Shift Management System account`,
+    html: layout(settings, `<p>Hi ${esc(user.name)},</p><p>An account was made for you in the Leave and Shift Management System.</p>
       <p>Open: <a href="${esc(url)}">${esc(url)}</a><br>Email: <b>${esc(user.email)}</b><br>First password: <b>${esc(password)}</b></p>
       <p>You will choose your own password when you sign in the first time.</p>`),
   });

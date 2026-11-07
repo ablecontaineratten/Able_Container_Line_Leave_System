@@ -10,7 +10,7 @@ self.addEventListener('push', (event) => {
       const res = await fetch('/api/notifications/pending', { credentials: 'include', cache: 'no-store' });
       if (res.ok) items = (await res.json()).items || [];
     } catch { /* offline: show the general message */ }
-    if (!items.length) items = [{ id: 0, title: 'Leave System', body: 'You have a new notification.', url: '/' }];
+    if (!items.length) items = [{ id: 0, title: 'Leave and Shift Management System', body: 'You have a new notification.', url: '/' }];
     await Promise.all(items.map((n) => self.registration.showNotification(n.title, {
       body: n.body,
       icon: '/img/icon-192.png',

@@ -80,7 +80,7 @@ export const can = (key) => !!(state.me && state.me.perms[key]);
 function applyBrand(b) {
   if (!b) return;
   if (/^#[0-9a-f]{6}$/i.test(b.brand_color || '')) document.documentElement.style.setProperty('--brand', b.brand_color);
-  if (b.company_name) document.title = `${b.company_name} · Leave System`;
+  if (b.company_name) document.title = `${b.company_name} · Leave and Shift Management System`;
   state.brand = b;
 }
 
@@ -149,7 +149,7 @@ function renderShell() {
     <div class="shell">
       <aside class="sidebar" id="sidebar">
         <div class="brand"><img src="${esc(b.logo_url || '/img/logo-ship.png')}" alt="">
-          <div><strong>Leave System</strong><small>${esc(b.company_name || '')}</small></div></div>
+          <div><strong>Leave and Shift Management System</strong><small>${esc(b.company_name || '')}</small></div></div>
         <nav class="nav">${nav}</nav>
       </aside>
       <div class="main">

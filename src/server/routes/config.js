@@ -17,7 +17,7 @@ async function testEmail(c) {
   if (!emailService(c.env)) fail(400, 'Email is not connected yet. Set up google_email_services (GOOGLE_MAIL_URL + GOOGLE_MAIL_SECRET) or Brevo - see GUIDE.md part 6.');
   const settings = await getSettings(c.env);
   const result = await sendEmail(c.env, settings, {
-    to: c.me.email, subject: `Test email - ${settings.company_name} Leave System`,
+    to: c.me.email, subject: `Test email - ${settings.company_name} Leave and Shift Management System`,
     html: layout(settings, `<p>Hi ${esc(c.me.name)},</p><p>Email is working. Leave requests and decisions will now be emailed.</p>`),
   });
   if (!result.startsWith('sent')) fail(400, `The test email was ${result}`);

@@ -632,3 +632,11 @@
 .work-card.onsite { box-shadow: inset 4px 0 0 var(--accent), 0 4px 16px -8px rgba(22, 29, 92, .22); }
 .work-card .lc-main small { font-weight: 600; color: var(--muted); font-size: .8rem; }
 @media (max-width: 380px) { .work-types { grid-template-columns: 1fr; } }
+
+/* Home list: second row All / Leave / WFH */
+.kind-seg { display: flex; gap: 8px; margin: -6px 0 14px; }
+.kind-seg button { flex: 1; padding: 8px 6px; border-radius: 999px; border: 1.5px solid #dfe4f0; background: #fff; color: #69728f; font: inherit; font-size: .84rem; font-weight: 700; cursor: pointer; transition: background .2s, color .2s, border-color .2s; }
+.kind-seg button small { font-weight: 800; opacity: .7; }
+.kind-seg button.on { color: #fff; border-color: transparent; background: var(--navy); }
+.kind-seg button.leave.on { background: #1e9e5c; }
+.kind-seg button.work.on { background: var(--brand); }

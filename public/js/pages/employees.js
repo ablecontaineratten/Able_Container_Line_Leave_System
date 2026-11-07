@@ -27,6 +27,9 @@ export default async function render(view, ctx) {
     { name: 'name', label: 'Full name', required: true },
     { name: 'email', label: 'Email', type: 'email', help: 'Needed to sign in and to get emails.' },
     { name: 'department_id', label: 'Department', type: 'select', required: true, options: [{ value: '', label: 'Choose…' }, ...departments.map((d) => ({ value: d.id, label: d.name }))] },
+    { name: 'etf_no', label: 'ETF No', placeholder: 'e.g. 1234' },
+    { name: 'nic_no', label: 'NIC No', placeholder: '851234567V or 198512345678' },
+    { name: 'phone', label: 'Phone No', type: 'tel', placeholder: '077 123 4567' },
     { name: 'status', label: 'Status', type: 'select', options: [{ value: 'Active', label: 'Active' }, { value: 'Inactive', label: 'Inactive' }] },
     // Designation: tick the box, then pick one from the list, or "<Add New>" and type it (saved with the employee)
     { name: 'has_designation', label: 'Has a designation', type: 'checkbox', full: true },
@@ -49,7 +52,8 @@ export default async function render(view, ctx) {
   const columns = [
     { label: 'No', render: (e) => `<b>${esc(e.emp_no)}</b>` },
     { label: 'Name', render: (e) => `<span class="emp-cell">${empAvatar(e)}<span>${esc(e.name)}${e.designation ? `<div class="muted small">${esc(e.designation)}</div>` : ''}</span></span>` },
-    { label: 'Email', render: (e) => esc(e.email) },
+    { label: 'Email', render: (e) => `${esc(e.email)}${e.phone ? `<div class="muted small">📞 ${esc(e.phone)}</div>` : ''}` },
+    { label: 'ETF / NIC', render: (e) => `${e.etf_no ? `<div class="small">ETF ${esc(e.etf_no)}</div>` : ''}${e.nic_no ? `<div class="muted small">NIC ${esc(e.nic_no)}</div>` : ''}` },
     { label: 'Department', render: (e) => esc(e.department || '-') },
     { label: 'Status', render: (e) => `<span class="badge ${e.status === 'Active' ? 'badge-approved' : 'badge-cancelled'}">${esc(e.status)}</span>` },
     { label: 'Portal', render: (e) => (!e.email ? '<span class="muted small">No email - cannot sign in</span>'
@@ -88,10 +92,10 @@ export default async function render(view, ctx) {
 
   $('#search').addEventListener('input', (e) => {
     const t = e.target.value.trim().toLowerCase();
-    draw(t ? rows.filter((r) => [r.emp_no, r.name, r.email, r.department, r.designation].join(' ').toLowerCase().includes(t)) : rows);
+    draw(t ? rows.filter((r) => [r.emp_no, r.name, r.email, r.department, r.designation, r.etf_no, r.nic_no, r.phone].join(' ').toLowerCase().includes(t)) : rows);
   });
-  $('#export').addEventListener('click', () => downloadCsv('employees.csv', ['emp_no', 'name', 'email', 'department', 'status', 'designation'],
-    rows.map((e) => [e.emp_no, e.name, e.email, e.department, e.status, e.designation])));
+  $('#export').addEventListener('click', () => downloadCsv('employees.csv', ['emp_no', 'name', 'email', 'department', 'status', 'designation', 'etf_no', 'nic_no', 'phone'],
+    rows.map((e) => [e.emp_no, e.name, e.email, e.department, e.status, e.designation, e.etf_no, e.nic_no, e.phone])));
   if (!canEdit) return;
 
   $('#add').addEventListener('click', async () => {
