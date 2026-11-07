@@ -80,14 +80,6 @@ async function backupBox(box, canEdit) {
     const ok = /^OK/.test(b.status);
     box.innerHTML = `<div class="card-head"><h2>📊 Google Sheet Backup</h2>
         ${b.connected ? `<span class="badge ${ok ? 'badge-approved' : 'badge-rejected'}">${ok ? 'Syncing' : 'Last sync failed'}</span>` : '<span class="badge badge-cancelled">Not connected</span>'}</div>
-      <p class="muted small">Every page of the system is copied into a Google Sheet (one tab each: Employees, Departments, Login Accounts, Leave Requests,
-        WFH Requests, Leave Summary, Leave Settings, Holidays, Settings). After the first sync the sheet is updated <b>automatically after every change</b>.
-        Passwords are never copied.</p>
-      <ol class="backup-steps small">
-        <li>Create a Google Sheet → <b>Extensions → Apps Script</b> → paste <code>google_backup/Code.gs</code> → run <b>setup</b> (it shows the secret key).</li>
-        <li><b>Deploy → New deployment → Web app</b> (Execute as: Me · Who has access: Anyone) → copy the Web app link.</li>
-        <li>Paste the link and the secret key below → <b>First-time sync</b>.</li>
-      </ol>
       ${b.connected ? `<div class="backup-status">
           <div><span class="muted small">Connected sheet</span><a href="${esc(b.sheet_url)}" target="_blank" rel="noopener"><b>${esc(b.sheet_title || 'Open the Google Sheet')}</b> ↗</a></div>
           <div><span class="muted small">Last synced</span><b>${esc(when(b.last_sync))}</b></div>
@@ -101,7 +93,15 @@ async function backupBox(box, canEdit) {
         </div>
         <div class="backup-row"><button class="btn btn-primary" type="button" id="first-sync">First-time sync</button>
         ${b.connected ? `<button class="btn" type="button" id="sync-now">⟳ Sync now</button>
-          <button class="btn btn-danger-outline" type="button" id="stop-sync">Stop syncing</button>` : ''}</div>` : ''}`;
+          <button class="btn btn-danger-outline" type="button" id="stop-sync">Stop syncing</button>` : ''}</div>
+        ${b.connected ? `<div class="backup-schedule">
+          <label class="field"><span>Automatic sync</span><select id="bk-schedule">
+            ${[['change', 'After every change'], ['hourly', 'Every hour'], ['daily', 'Every day at…'], ['manual', 'Manual only (Sync now)']]
+    .map(([v, l]) => `<option value="${v}" ${b.schedule === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+          <label class="field" id="bk-time-box" ${b.schedule === 'daily' ? '' : 'hidden'}><span>Time</span><select id="bk-time">
+            ${Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, '0')}:00`).map((t) => `<option ${b.time === t ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+          <button class="btn btn-primary" type="button" id="bk-save">Save schedule</button>
+        </div>` : ''}` : ''}`;
     const act = (id, label, fn) => {
       const btn = $(id, box);
       if (!btn) return;
@@ -114,6 +114,11 @@ async function backupBox(box, canEdit) {
     };
     act('#first-sync', 'Syncing…', () => post('/backup/first-sync', { app_url: $('#app-url', box).value.trim(), secret: $('#app-secret', box).value.trim() }));
     act('#sync-now', 'Syncing…', () => post('/backup/sync'));
+    const sch = $('#bk-schedule', box);
+    if (sch) {
+      sch.addEventListener('change', () => { $('#bk-time-box', box).hidden = sch.value !== 'daily'; });
+      act('#bk-save', 'Saving…', () => post('/backup/schedule', { schedule: sch.value, time: $('#bk-time', box).value }));
+    }
     const stopBtn = $('#stop-sync', box);
     if (stopBtn) stopBtn.addEventListener('click', async () => {
       if (!await confirmDialog({ title: 'Stop syncing', message: 'Stop updating the Google Sheet? The sheet and its data stay as they are.', confirmText: 'Stop', danger: true })) return;

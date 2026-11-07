@@ -22,6 +22,9 @@ function setup() {
     props.setProperty('BACKUP_SECRET', secret);
   }
   logSheet_();
+  // hourly timer for scheduled syncs (Every hour / Every day). The system decides if a sync is due.
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'scheduledSync') ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger('scheduledSync').timeBased().everyHours(1).create();
   Logger.log('READY.\n\nSecret key (paste it in the system):\n' + secret +
     '\n\nNext: Deploy → New deployment → Web app (Execute as: Me, Who has access: Anyone).');
 }
@@ -49,6 +52,9 @@ function doPost(e) {
   if (!secret || body.secret !== secret) return json_({ ok: false, error: 'Wrong secret key' });
   if (!body.tabs || typeof body.tabs !== 'object') return json_({ ok: false, error: 'No data' });
 
+  if (body.system_url && /^https:\/\//.test(body.system_url)) {      // remembered for the hourly scheduled sync
+    PropertiesService.getScriptProperties().setProperty('SYSTEM_URL', String(body.system_url).replace(/\/+$/, ''));
+  }
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(25000)) return json_({ ok: false, error: 'Another sync is running, try again' });
   try {
@@ -71,6 +77,19 @@ function doPost(e) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// Runs every hour (made by setup): asks the system "is a sync due?" - if yes the system sends the data
+function scheduledSync() {
+  const props = PropertiesService.getScriptProperties();
+  const url = props.getProperty('SYSTEM_URL');
+  const secret = props.getProperty('BACKUP_SECRET');
+  if (!url || !secret) return;
+  try {
+    UrlFetchApp.fetch(url + '/api/backup/tick', {
+      method: 'post', contentType: 'application/json', payload: JSON.stringify({ secret: secret }), muteHttpExceptions: true,
+    });
+  } catch (err) { log_('Scheduled check', 'FAILED: ' + (err && err.message || err), ''); }
 }
 
 // ---------------------------------------------------------------- helpers

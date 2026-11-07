@@ -826,3 +826,5 @@ img.emp-avatar:hover { transform: scale(1.9); position: relative; z-index: 2; }.
 .backup-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
 .backup-row input { flex: 1 1 320px; }
 .backup-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.backup-schedule { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--line); }
+.backup-schedule .field { min-width: 200px; }

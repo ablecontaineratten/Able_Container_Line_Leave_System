@@ -84,14 +84,15 @@ async function collect(env) {
 
 // ---------------------------------------------------------------- send everything to the Google Apps Script
 // Google answers the POST with a redirect to the result (same as the email service).
-async function sendToSheet(env, appUrl, secret, type) {
+async function sendToSheet(env, appUrl, secret, type, systemUrl = '') {
   const tabs = await collect(env);
   let res;
   try {
     res = await fetch(appUrl, {
       method: 'POST', redirect: 'follow',
       headers: { 'content-type': 'text/plain;charset=utf-8' },        // keeps Google from asking for a preflight
-      body: JSON.stringify({ secret, type, first: type === 'First-time sync', tabs, headerRows: { 'Leave Summary': 2 } }),
+      // system_url: the script calls it back every hour for scheduled syncs (Every hour / Every day)
+      body: JSON.stringify({ secret, type, first: type === 'First-time sync', tabs, headerRows: { 'Leave Summary': 2 }, system_url: systemUrl }),
     });
   } catch (err) { fail(400, `Could not reach the Google Sheet app: ${err.message}`); }
   const text = await res.text();
@@ -102,9 +103,9 @@ async function sendToSheet(env, appUrl, secret, type) {
   return data;           // { ok, rows, sheet, url }
 }
 
-async function runSync(env, appUrl, secret, type) {
+async function runSync(env, appUrl, secret, type, systemUrl) {
   try {
-    const res = await sendToSheet(env, appUrl, secret, type);
+    const res = await sendToSheet(env, appUrl, secret, type, systemUrl);
     await setState(env, 'backup_last_sync', nowIso());
     await setState(env, 'backup_status', `OK · ${res.rows} rows`);
     return res;
@@ -114,11 +115,36 @@ async function runSync(env, appUrl, secret, type) {
   }
 }
 
+// Automatic sync: change = after every change (default) · hourly · daily (at backup_time) · manual = only Sync now
+const SCHEDULES = ['change', 'hourly', 'daily', 'manual'];
+const scheduleOf = (s) => (SCHEDULES.includes(s.backup_schedule) ? s.backup_schedule : 'change');
+const systemUrlOf = async (env, origin) => (await getSettings(env)).app_url || origin || '';
+
 // Called after every change in the system (see app.js): refresh the sheet in the background
 export async function autoSync(env) {
   const s = await state(env);
-  if (!s.backup_app_url || !s.backup_secret) return;
+  if (!s.backup_app_url || !s.backup_secret || scheduleOf(s) !== 'change') return;
   await runSync(env, s.backup_app_url, s.backup_secret, 'Automatic').catch((err) => console.error('Backup sync failed:', err.message));
+}
+
+// The Google script calls this every hour; a sync runs when the schedule says it is due
+async function tick(c) {
+  const b = await readJson(c.request);
+  const s = await state(c.env);
+  if (!s.backup_secret || clean(b.secret) !== s.backup_secret) fail(403, 'Wrong secret key.');
+  const schedule = scheduleOf(s);
+  const last = s.backup_last_sync ? Date.parse(s.backup_last_sync) : 0;
+  const ago = (Date.now() - last) / 60000;                 // minutes since the last sync
+  let due = false;
+  if (schedule === 'hourly') due = ago >= 50;
+  if (schedule === 'daily') {
+    const settings = await getSettings(c.env);
+    const hourNow = new Intl.DateTimeFormat('en-GB', { timeZone: settings.timezone || 'UTC', hour: '2-digit', hourCycle: 'h23' }).format(new Date());
+    due = hourNow === String(s.backup_time || '23:00').slice(0, 2) && ago >= 120;
+  }
+  if (!due) return { ok: true, synced: false, schedule };
+  const res = await runSync(c.env, s.backup_app_url, s.backup_secret, schedule === 'hourly' ? 'Hourly sync' : 'Daily sync');
+  return { ok: true, synced: true, rows: res.rows };
 }
 
 // ---------------------------------------------------------------- routes (Settings → General)
@@ -127,7 +153,22 @@ async function status(c) {
   return {
     connected: !!(s.backup_app_url && s.backup_secret), app_url: s.backup_app_url || '', has_secret: !!s.backup_secret,
     sheet_url: s.backup_sheet_url || '', sheet_title: s.backup_sheet_title || '', last_sync: s.backup_last_sync || '', status: s.backup_status || '',
+    schedule: scheduleOf(s), time: s.backup_time || '23:00',
   };
+}
+
+async function saveSchedule(c) {
+  const b = await readJson(c.request);
+  const schedule = SCHEDULES.includes(b.schedule) ? b.schedule : 'change';
+  const time = /^([01]\d|2[0-3]):00$/.test(clean(b.time)) ? clean(b.time) : '23:00';
+  await setState(c.env, 'backup_schedule', schedule);
+  await setState(c.env, 'backup_time', time);
+  // the Google script needs the system link for scheduled syncs: send one sync now so it learns it
+  const s = await state(c.env);
+  if ((schedule === 'hourly' || schedule === 'daily') && s.backup_app_url && s.backup_secret) {
+    await runSync(c.env, s.backup_app_url, s.backup_secret, 'Manual sync', await systemUrlOf(c.env, c.origin));
+  }
+  return { ok: true, ...(await status(c)) };
 }
 
 async function firstSync(c) {
@@ -137,7 +178,7 @@ async function firstSync(c) {
   const secret = clean(b.secret) || old.backup_secret || '';          // empty = keep the saved key
   if (!/^https:\/\/script\.google(usercontent)?\.com\/.+\/exec$/.test(appUrl)) fail(400, 'Paste the Web app link of the Google Apps Script (it ends with /exec).');
   if (secret.length < 16) fail(400, 'Paste the secret key from the Google Apps Script (run "setup" or "showSecret").');
-  const res = await runSync(c.env, appUrl, secret, 'First-time sync');
+  const res = await runSync(c.env, appUrl, secret, 'First-time sync', await systemUrlOf(c.env, c.origin));
   await setState(c.env, 'backup_app_url', appUrl);
   await setState(c.env, 'backup_secret', secret);
   await setState(c.env, 'backup_sheet_url', res.url || '');
@@ -148,7 +189,7 @@ async function firstSync(c) {
 async function syncNow(c) {
   const s = await state(c.env);
   if (!s.backup_app_url || !s.backup_secret) fail(400, 'Not connected yet. Paste the link and key and press First-time sync.');
-  const res = await runSync(c.env, s.backup_app_url, s.backup_secret, 'Manual sync');
+  const res = await runSync(c.env, s.backup_app_url, s.backup_secret, 'Manual sync', await systemUrlOf(c.env, c.origin));
   return { ok: true, rows: res.rows, ...(await status(c)) };
 }
 
@@ -162,4 +203,6 @@ export default [
   { method: 'POST', path: '/api/backup/first-sync', perm: 'settings.edit', handler: firstSync },
   { method: 'POST', path: '/api/backup/sync', perm: 'settings.edit', handler: syncNow },
   { method: 'POST', path: '/api/backup/stop', perm: 'settings.edit', handler: stop },
+  { method: 'POST', path: '/api/backup/schedule', perm: 'settings.edit', handler: saveSchedule },
+  { method: 'POST', path: '/api/backup/tick', auth: false, handler: tick },
 ];
