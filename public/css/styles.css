@@ -607,55 +607,6 @@ img.emp-avatar:hover { transform: scale(1.9); position: relative; z-index: 2; }.
 @media (max-width: 760px) { .sidebar { box-shadow: none; } .nav-open .sidebar { box-shadow: 0 0 40px rgba(0, 0, 0, .25); } }
 
 /* =====================================================================
-   Phone app for heads (lite.js): leave requests with Approve / Reject
-   ===================================================================== */
-.dropdown .m-only { display: none; }
-@media (max-width: 760px) { .dropdown .m-only { display: flex; } }
-.lite { min-height: 100vh; min-height: 100dvh; background: #f5f7fc; padding: 0 16px calc(40px + env(safe-area-inset-bottom)); }
-.lite-top { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 12px; margin: 0 -16px; padding: 14px 18px 10px; background: rgba(245, 247, 252, .94); backdrop-filter: blur(10px); }
-.lite-title { margin: 10px 2px 14px; font-size: 1.55rem; font-weight: 800; color: var(--navy); }
-.lite .notice { border-radius: 16px; margin-bottom: 14px; }
-.lite-seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 5px; background: #fff; border-radius: 14px; box-shadow: 0 4px 14px -8px rgba(22, 29, 92, .25); margin-bottom: 16px; }
-.lite-seg button { display: flex; align-items: center; justify-content: center; gap: 7px; padding: 11px 6px; border: 0; border-radius: 10px; background: none; color: #69728f; font: inherit; font-weight: 700; font-size: .92rem; cursor: pointer; transition: background .2s, color .2s; }
-.lite-seg button .ico { width: 17px; height: 17px; }
-.lite-seg button.on { background: linear-gradient(135deg, var(--brand), #4558cc); color: #fff; box-shadow: 0 6px 14px -6px rgba(46, 49, 146, .7); }
-.lite-seg em { font-style: normal; font-size: .7rem; font-weight: 800; background: #ffb020; color: #fff; border-radius: 999px; padding: 1px 7px; }
-.lite-seg button.on em { background: #fff; color: var(--brand); }
-.lite-list { display: flex; flex-direction: column; gap: 12px; }
-.lite .app-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 46px 20px; text-align: center; color: var(--muted); background: #fff; border-radius: 18px; }
-.lite .app-empty .ico { width: 42px; height: 42px; stroke: #b5bdd6; stroke-width: 1.6; margin-bottom: 6px; }
-.lite .app-empty b { color: var(--navy); }
-.lite .app-loading { display: grid; place-items: center; padding: 50px; }
-
-.lr-card { background: #fff; border-radius: 18px; padding: 16px; box-shadow: 0 4px 16px -8px rgba(22, 29, 92, .22); animation: lr-up .35s ease both; animation-delay: calc(var(--i, 0) * 40ms); }
-@keyframes lr-up { from { opacity: 0; transform: translateY(8px); } }
-.lr-head { display: flex; align-items: center; gap: 12px; }
-.lr-av { width: 44px; height: 44px; flex: none; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: .9rem; color: hsl(var(--h) 55% 32%); background: hsl(var(--h) 75% 92%); }
-.lr-who { flex: 1; min-width: 0; }
-.lr-who b { display: block; color: var(--navy); font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lr-who small { color: var(--muted); font-size: .8rem; }
-.lr-days { flex: none; padding: 5px 11px; border-radius: 999px; background: #eaeefb; color: var(--brand); font-size: .76rem; font-weight: 800; white-space: nowrap; }
-.lite .pill { padding: 5px 12px; border-radius: 999px; font-size: .76rem; font-weight: 700; white-space: nowrap; }
-.lite .s-pending { background: #fff3e0; color: #f08c00; }
-.lite .s-approved { background: #e6f7ee; color: #1e9e5c; }
-.lite .s-rejected { background: #fdecec; color: #e03131; }
-.lr-type { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; margin-top: 14px; padding: 12px 14px; border-radius: 12px; background: #f5f7fc; }
-.lr-type b { color: var(--text); font-size: .95rem; }
-.lr-type span { display: inline-flex; align-items: center; gap: 6px; color: #4a5372; font-size: .88rem; font-weight: 600; }
-.lr-type .ico { width: 15px; height: 15px; }
-.lr-note { display: flex; gap: 8px; margin: 10px 0 0; padding: 0 2px; color: #55607d; font-size: .88rem; }
-.lr-note .ico { width: 15px; height: 15px; margin-top: 3px; color: #9aa2b8; }
-.lr-meta { margin-top: 10px; padding: 0 2px; color: #9aa2b8; font-size: .76rem; }
-.lr-act { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; margin-top: 14px; }
-.lr-act:has(> :only-child) { grid-template-columns: 1fr; }
-.lr-btn { display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 48px; border-radius: 14px; font: inherit; font-weight: 800; font-size: .95rem; cursor: pointer; transition: transform .1s, filter .2s; }
-.lr-btn:active { transform: scale(.97); }
-.lr-btn .ico { width: 19px; height: 19px; stroke-width: 2.6; }
-.lr-btn.yes { border: 0; color: #fff; background: linear-gradient(135deg, #16a34a, #22c55e); box-shadow: 0 10px 20px -10px rgba(22, 163, 74, .8); }
-.lr-btn.no { border: 1.5px solid #f5c7c7; color: #e03131; background: #fff; }
-.lite #user-dd { min-width: 230px; } .lite #user-dd button { white-space: nowrap; text-align: left; justify-content: flex-start; }
-
-/* =====================================================================
    Sign in (system): company video full screen + blue / violet glow + glass form
    ===================================================================== */
 .auth3 { position: relative; min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px 70px; overflow: hidden; color: #fff; background: #24168f; isolation: isolate; }
@@ -793,9 +744,6 @@ img.emp-avatar:hover { transform: scale(1.9); position: relative; z-index: 2; }.
 .dash-stat.wfh { box-shadow: inset 4px 0 0 var(--brand), 0 8px 24px -18px rgba(27, 35, 102, .25); }
 .dash-stat.onsite { box-shadow: inset 4px 0 0 var(--accent), 0 8px 24px -18px rgba(27, 35, 102, .25); }
 .dash-stat.onsite b { color: var(--accent); }
-.lr-work.onsite { box-shadow: inset 4px 0 0 var(--accent), 0 6px 18px -12px rgba(22, 29, 92, .35); }
-.lr-work.wfh { box-shadow: inset 4px 0 0 var(--brand), 0 6px 18px -12px rgba(22, 29, 92, .35); }
-.lr-work .lr-type small { color: var(--muted); font-weight: 600; }
 
 /* ---------- Calendar: weekend days picker */
 .weekend-card { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }

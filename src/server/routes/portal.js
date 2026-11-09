@@ -116,7 +116,9 @@ const logout = (c) => signOutBoth(c);
 
 async function me(c) {
   const e = await portalEmployee(c);
-  return { employee: publicEmployee(e), ...(await brand(c)) };
+  // also a Department head / Admin / Super admin: they use the full system (with My Leave), not this app
+  const system = !!(await first(c.env, `SELECT 1 AS y FROM users WHERE employee_id = ? AND status = 'active'`, e.id));
+  return { employee: publicEmployee(e), system, ...(await brand(c)) };
 }
 
 async function changePassword(c) {

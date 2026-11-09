@@ -819,6 +819,8 @@ async function start() {
     if (res.status === 401) return showLogin();
     const me = await res.json();
     if (!res.ok) throw new Error(me.error || 'Could not load the portal.');
+    // a head / admin / super admin who is also an employee uses the full system (it has My Leave)
+    if (me.system) { location.replace('/'); return; }
     state.employee = me.employee;
     registerWorker();
     resyncPush('/api/portal/push/subscribe');

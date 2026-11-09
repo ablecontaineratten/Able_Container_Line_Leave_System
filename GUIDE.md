@@ -317,16 +317,27 @@ Everyone uses the **same sign-in** (email + password), on the system page or the
 |---|---|
 | Has a **Login account** (Super admin, Admin, Department head) and uses that password | **The system** |
 | Is only in **Employees** (password `user@123` or their own) | **The employee app** |
-| Is both (an employee who is also a Department head / Admin) | The system, and is also signed in to the employee app |
+| Is both (an employee who is also a Department head / Admin / Super admin) | The system **with My Leave** - also from the phone app |
 
-### An employee who is also a Department head / Admin
+The system looks the same on a computer and on a phone (on a phone: bottom tabs + **More** menu).
+**My Leave / Request Leave** only show for a login that is also an employee.
+
+### One person = one account
+
+| Who | How the Super admin sets it up |
+|---|---|
+| Not an employee (only manages) | **Login accounts → Add** |
+| An employee | **Employees → Add employee** (the employee app account is ready at once). To make them Department head / Admin / Super admin: **Employees → System access**. *Login accounts → Add* refuses an employee's email and says so. |
+| Login made first, employee added later (same email) | **Add employee** (or CSV import / changing the email) **links** to the existing login - no second account, and they keep the login's password. |
+
+### An employee who is also a Department head / Admin / Super admin
 
 1. The **Super admin** opens **Employees**, clicks **System access** on the employee, and chooses
-   **Department head** (tick their department(s)) or **Admin**. Choosing **None** takes the access away again.
-   The employee needs an email; the login account is made and linked automatically.
+   **Department head** (tick their department(s)), **Admin** or **Super admin**. Choosing **None** takes the access away again.
+   The employee needs an email; the login account is made and linked automatically. One Super admin must always remain.
 2. The person signs in **once**, with the **same password** for the system and the employee app.
    If they never set their own password, the first password is `user@123` and they must choose their own.
-3. In the system, their own leave is under **My Leave** and **Request Leave** (on a phone: menu → *Request my leave*).
+3. They always get the **full system** (the phone app sends them there too); their own leave is under **My Leave** and **Request Leave**.
 4. They can **never approve their own leave**; it goes to the Super admin / Admin.
 5. Making the employee **Inactive** (or deleting them) removes the system access at once.
    Every give / remove is saved in the `access_log` table.

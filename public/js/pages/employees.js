@@ -40,6 +40,7 @@ export default async function render(view, ctx) {
       { value: 'none', label: 'None - leave app only (normal employee)' },
       { value: 'head', label: 'Department head - approves the leave of their department(s)' },
       { value: 'admin', label: 'Admin' },
+      { value: 'super_admin', label: 'Super admin - can do everything' },
     ] },
     { name: 'departments', label: 'Head of these departments', type: 'multiselect', full: true, showIf: (v) => v.access !== 'none',
       help: 'Their leave requests come to this person. Required for a Department head.',
@@ -49,10 +50,10 @@ export default async function render(view, ctx) {
     if (!e.email && e.access === 'none') return toast(`Add an email for ${e.name} first (Edit) - it is used to sign in.`, 'error');
     const res = await formDialog({
       title: `System access · ${e.name}`, fields: accessFields, submitText: 'Save access',
-      values: { access: e.access === 'super_admin' ? 'admin' : e.access, departments: e.head_of },
-      intro: `<p class="muted small">With system access, <b>${esc(e.name)}</b> signs in to the system with <b>${esc(e.email || 'their email')}</b>
-        and the same password as the leave app. Their own leave is under <b>My Leave / Request Leave</b> in the system.
-        They can never approve their own leave - it goes to the Super admin / Admin.</p>`,
+      values: { access: e.access, departments: e.head_of },
+      intro: `<p class="muted small">With system access, <b>${esc(e.name)}</b> signs in with <b>${esc(e.email || 'their email')}</b> and the same password
+        as the leave app, and always gets the <b>full system</b> (also on the phone app). Their own leave is under <b>My Leave / Request Leave</b>.
+        They can never approve their own leave - it goes to the Super admin / Admin. There must always be at least one Super admin.</p>`,
       onSubmit: (v) => put(`/employees/${e.id}/access`, { access: v.access, departments: v.departments.map(Number) }),
     });
     if (!res) return;
@@ -97,7 +98,7 @@ export default async function render(view, ctx) {
     { label: 'Portal', render: (e) => (!e.email ? '<span class="muted small">No email - cannot sign in</span>'
       : e.own_password ? '<span class="badge badge-approved">Own password</span>' : `<span class="badge badge-pending">Default (${DEFAULT_PASSWORD})</span>`) },
     { label: 'System access', render: accessCell },
-    canEdit || canDelete ? { label: '', cls: 'actions', render: (e) => `${canEdit ? `<button class="btn btn-small" data-edit>Edit</button>${e.own_password ? ' <button class="btn btn-small" data-portal>Reset portal password</button>' : ''}` : ''}${canAccess && e.access !== 'super_admin' ? ' <button class="btn btn-small" data-access>System access</button>' : ''} ${canDelete ? '<button class="btn btn-small btn-danger-outline" data-del>Delete</button>' : ''}` } : null,
+    canEdit || canDelete ? { label: '', cls: 'actions', render: (e) => `${canEdit ? `<button class="btn btn-small" data-edit>Edit</button>${e.own_password ? ' <button class="btn btn-small" data-portal>Reset portal password</button>' : ''}` : ''}${canAccess ? ' <button class="btn btn-small" data-access>System access</button>' : ''} ${canDelete ? '<button class="btn btn-small btn-danger-outline" data-del>Delete</button>' : ''}` } : null,
   ].filter(Boolean);
 
   view.innerHTML = `${pageHead('Employees', '', `<button class="btn" id="export">Export CSV</button>
@@ -106,12 +107,15 @@ export default async function render(view, ctx) {
     <section class="card emp-list" id="list"></section>`;
 
   const reload = () => render(view, ctx);
+  // the employee's email already had a login account (made first): it is now linked, no second account
+  const linkedText = (name, l) => (l ? ` ${name} is linked to the existing ${l.role_label} login - same password${l.active ? '' : ' (that login is disabled)'}.` : '');
   const draw = (list) => {
     const el = $('#list');
     el.innerHTML = tableHtml(columns, list, { empty: 'No employees yet.' });
     el.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', async () => {
       const e = list[Number(b.closest('tr').dataset.index)];
-      if (await formDialog({ title: `Edit ${e.name}`, fields, values: formValues(e), onSubmit: (v) => put(`/employees/${e.id}`, toServer(v)) })) { toast('Saved.'); reload(); }
+      const res = await formDialog({ title: `Edit ${e.name}`, fields, values: formValues(e), onSubmit: (v) => put(`/employees/${e.id}`, toServer(v)) });
+      if (res) { toast(`Saved.${linkedText(e.name, res.linked)}`); reload(); }
     }));
     el.querySelectorAll('[data-access]').forEach((b) => b.addEventListener('click', () => editAccess(list[Number(b.closest('tr').dataset.index)])));
     el.querySelectorAll('[data-portal]').forEach((b) => b.addEventListener('click', async () => {
@@ -138,7 +142,8 @@ export default async function render(view, ctx) {
 
   $('#add').addEventListener('click', async () => {
     if (!departments.length) return toast('Add a department first (Departments page).', 'error');
-    if (await formDialog({ title: 'Add employee', fields, values: { status: 'Active', designation_pick: NEW_DESIGNATION }, onSubmit: (v) => post('/employees', toServer(v)) })) { toast('Employee added.'); reload(); }
+    const res = await formDialog({ title: 'Add employee', fields, values: { status: 'Active', designation_pick: NEW_DESIGNATION }, onSubmit: (v) => post('/employees', toServer(v)) });
+    if (res) { toast(`Employee added.${linkedText('They', res.linked)}`); reload(); }
   });
 
   $('#import').addEventListener('click', () => {
@@ -164,7 +169,7 @@ EMP005,John Silva,john@company.com,IT,Active</pre>
       try {
         const res = await post('/employees/import', { rows: body });
         m.close();
-        toast(`${res.added} added, ${res.updated} updated.`);
+        toast(`${res.added} added, ${res.updated} updated.${res.linked ? ` ${res.linked} linked to an existing login account.` : ''}`);
         if (res.errors.length) openModal({ title: 'Some rows were skipped', body: `<ul>${res.errors.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` });
         await ctx.reload();
       } catch (ex) { err.textContent = ex.message; err.hidden = false; }

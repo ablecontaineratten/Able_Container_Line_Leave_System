@@ -31,9 +31,36 @@ async function listEmployees(c) {
 }
 
 // ---- System access (Super admin only): an employee who is also a Department head / Admin.
-// One person = one login account linked to the employee (users.employee_id), one password, and the
-// Employee ⇄ Admin switch in both apps.
-const ACCESS_LABEL = { none: 'No system access', head: 'Department head', admin: 'Admin' };
+// One person = one login account linked to the employee (users.employee_id) and one password.
+// They use the full system (it has My Leave); the leave app sends them there.
+const ACCESS_LABEL = { none: 'No system access', head: 'Department head', admin: 'Admin', super_admin: 'Super admin' };
+
+// There must always be at least one active Super admin
+async function keepOneSuper(env, userId) {
+  const others = await first(env, `SELECT COUNT(*) AS n FROM users WHERE role = 'super_admin' AND status = 'active' AND id <> ?`, userId);
+  if (!others.n) fail(400, 'This is the last active Super admin. Make someone else Super admin first.');
+}
+
+// "This email belongs to an employee": their access is given on the Employees page, not as a separate login
+async function refuseEmployeeEmail(env, email) {
+  const e = isEmail(email) ? await first(env, 'SELECT name, emp_no FROM employees WHERE email = ? COLLATE NOCASE', email) : null;
+  if (e) fail(400, `This email belongs to employee ${e.name} (${e.emp_no}). Give system access from Employees → System access.`);
+}
+
+// A new / changed employee email that already has a login account (made first): link them, no second
+// account; the employee keeps the login's password. Returns the login, or null.
+async function linkExistingLogin(env, employeeId, email) {
+  if (!isEmail(email)) return null;
+  if (await first(env, 'SELECT id FROM users WHERE employee_id = ?', employeeId)) return null;
+  const u = await first(env, 'SELECT id, role, status, password_hash, password_salt FROM users WHERE email = ? COLLATE NOCASE AND employee_id IS NULL', email);
+  if (!u) return null;
+  await batch(env, [
+    stmt(env, 'UPDATE users SET employee_id = ? WHERE id = ?', employeeId, u.id),
+    u.password_hash ? stmt(env, 'UPDATE employees SET portal_hash = ?, portal_salt = ?, portal_failed = 0, portal_locked_until = NULL WHERE id = ?',
+      u.password_hash, u.password_salt, employeeId) : null,
+  ]);
+  return { role: u.role, role_label: ROLE_LABELS[u.role] || u.role, active: u.status === 'active' };
+}
 
 const accessLog = (env, e, userId, access, deptNames, by) => stmt(env,
   'INSERT INTO access_log (employee_id, user_id, emp_name, access, departments, changed_by) VALUES (?, ?, ?, ?, ?, ?)',
@@ -70,13 +97,17 @@ async function setAccess(c) {
   const deptNames = depts.map((d) => d.name).sort().join(', ');
 
   const u = await accountOf(env, e);
-  if (u && u.role === 'super_admin') fail(400, `${e.name} is a Super admin. Change this account on the Login accounts page.`);
   if (u && u.id === c.me.id) fail(400, 'You cannot change your own system access.');
+  if (u && u.role === 'super_admin' && u.status === 'active' && access !== 'super_admin') await keepOneSuper(env, u.id);
 
   if (access === 'none') {
     if (!u || u.status !== 'active') return { ok: true, access };
-    await batch(env, [stmt(env, 'UPDATE users SET employee_id = ? WHERE id = ?', id, u.id), ...removeAccessStatements(env, u.id),
-      accessLog(env, e, u.id, 'none', '', c.me.name)]);
+    await batch(env, [
+      stmt(env, `UPDATE users SET employee_id = ?, status = 'disabled' WHERE id = ?`, id, u.id),
+      stmt(env, 'DELETE FROM sessions WHERE user_id = ?', u.id),
+      stmt(env, 'DELETE FROM department_heads WHERE user_id = ?', u.id),
+      accessLog(env, e, u.id, 'none', '', c.me.name),
+    ]);
     return { ok: true, access };
   }
 
@@ -206,7 +237,10 @@ async function createEmployee(c) {
   const res = await run(c.env, 'INSERT INTO employees (emp_no, name, email, department_id, status, designation, etf_no, nic_no, phone) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
     v.emp_no, v.name, v.email, v.department_id, v.status, v.designation, v.etf_no, v.nic_no, v.phone);
   await batch(c.env, [rememberDesignation(c.env, v.designation)]);
-  return { id: res.meta.last_row_id };
+  // made a Department head / Admin / Super admin login first? Link to it - no second account
+  const linked = await linkExistingLogin(c.env, res.meta.last_row_id, v.email);
+  if (linked && v.status === 'Inactive') await batch(c.env, await linkedAccountStatements(c, res.meta.last_row_id, v, c.me.name));
+  return { id: res.meta.last_row_id, linked };
 }
 
 async function updateEmployee(c) {
@@ -228,7 +262,10 @@ async function updateEmployee(c) {
     stmt(c.env, 'UPDATE leave_requests SET emp_no = ?, emp_name = ?, emp_email = ? WHERE employee_id = ?', v.emp_no, v.name, v.email, id),
     stmt(c.env, `UPDATE leave_requests SET department_id = ?, department = ? WHERE employee_id = ? AND status = 'Pending'`, v.department_id, dept ? dept.name : '', id),
   ]);
-  return { ok: true };
+  // the email now matches a login made earlier: link them
+  const joined = await linkExistingLogin(c.env, id, v.email);
+  if (joined && v.status === 'Inactive') await batch(c.env, await linkedAccountStatements(c, id, v, c.me.name));
+  return { ok: true, linked: joined };
 }
 
 async function deleteEmployee(c) {
@@ -274,6 +311,7 @@ async function importEmployees(c) {
   const errors = [];
   let added = 0;
   let updated = 0;
+  let linked = 0;
   for (const [i, raw] of rows.entries()) {
     const line = i + 2;
     const deptName = clean(raw.department);
@@ -293,15 +331,20 @@ async function importEmployees(c) {
           stmt(c.env, 'UPDATE employees SET name = ?, email = ?, department_id = ?, status = ? WHERE id = ?', v.name, v.email, v.department_id, v.status, old.id),
         ]);
         updated++;
-      } else {
-        await run(c.env, 'INSERT INTO employees (emp_no, name, email, department_id, status) VALUES (?, ?, ?, ?, ?)', v.emp_no, v.name, v.email, v.department_id, v.status);
-        added++;
+      }
+      const empId = old ? old.id
+        : (await run(c.env, 'INSERT INTO employees (emp_no, name, email, department_id, status) VALUES (?, ?, ?, ?, ?)', v.emp_no, v.name, v.email, v.department_id, v.status)).meta.last_row_id;
+      if (!old) added++;
+      // a login account made earlier with this email: link it (no second account)
+      if (await linkExistingLogin(c.env, empId, v.email)) {
+        linked++;
+        if (v.status === 'Inactive') await batch(c.env, await linkedAccountStatements(c, empId, v, `${c.me.name} (import)`));
       }
     } catch (err) {
       errors.push(`Row ${line}: ${err.message}`);
     }
   }
-  return { added, updated, errors };
+  return { added, updated, linked, errors };
 }
 
 // ---------------------------------------------------------------- departments
@@ -344,9 +387,10 @@ async function newHeadIds(c, b) {
     if (!isEmail(email)) fail(400, `Head email "${h.email || ''}" is not valid.`);
     const old = await first(c.env, 'SELECT id, role FROM users WHERE email = ? COLLATE NOCASE', email);
     if (old) { ids.push(old.id); continue; }
+    await refuseEmployeeEmail(c.env, email);          // an employee becomes a head on the Employees page
     if (!name) fail(400, `Enter the name of the head (${email}).`);
     checkPasswordRules(h.password);
-    const res = await run(c.env, `INSERT INTO users (email, name, role, status, must_change, employee_id) VALUES (?, ?, 'head', 'active', 0, ${FREE_EMPLOYEE_SQL})`, email, name, email);
+    const res = await run(c.env, `INSERT INTO users (email, name, role, status, must_change) VALUES (?, ?, 'head', 'active', 0)`, email, name);
     await setPassword(c.env, res.meta.last_row_id, h.password, false);
     ids.push(res.meta.last_row_id);
   }
@@ -392,9 +436,7 @@ async function deleteDepartment(c) {
 }
 
 // ---------------------------------------------------------------- login accounts
-// A new login account is linked to the employee with the same email (if that employee has no login yet)
-const FREE_EMPLOYEE_SQL = `(SELECT e.id FROM employees e WHERE e.email <> '' AND e.email = ? COLLATE NOCASE
-  AND NOT EXISTS (SELECT 1 FROM users x WHERE x.employee_id = e.id) LIMIT 1)`;
+// Only for people who are NOT employees; an employee gets access on the Employees page (System access)
 
 async function listUsers(c) {
   const [users, heads] = await Promise.all([
@@ -440,8 +482,9 @@ async function createUser(c) {
   if (!name) fail(400, 'Enter the name.');
   roleAllowed(c.me, role);
   if (await first(c.env, 'SELECT id FROM users WHERE email = ? COLLATE NOCASE', email)) fail(400, 'An account with this email already exists.');
-  const res = await run(c.env, `INSERT INTO users (email, name, role, designation, status, must_change, employee_id) VALUES (?, ?, ?, ?, 'active', 1, ${FREE_EMPLOYEE_SQL})`,
-    email, name, role, designationFor(role, b.designation), email);
+  await refuseEmployeeEmail(c.env, email);
+  const res = await run(c.env, `INSERT INTO users (email, name, role, designation, status, must_change) VALUES (?, ?, ?, ?, 'active', 1)`,
+    email, name, role, designationFor(role, b.designation));
   const password = tempPassword();
   await setPassword(c.env, res.meta.last_row_id, password, true);
   const emailed = await welcome(c, { email, name }, password);

@@ -4,7 +4,7 @@ import { $, $$, esc, loadingHtml, toast } from './ui.js';
 import { renderForceChange, renderLogin, renderSetup } from './pages/auth.js';
 import { registerWorker, resyncPush } from './push.js';
 import { setTimeZone } from './components/requests.js';
-import { PHONE, canDecide, greeting, renderLite, setView, wantsLite } from './lite.js';
+const greeting = () => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'; };
 import home from './pages/home.js';
 import myLeave from './pages/my-leave.js';
 import apply from './pages/apply.js';
@@ -166,7 +166,6 @@ function renderShell() {
             <div class="dropdown" id="user-dd" hidden>
               <a href="#/profile">${icon('user')} My account</a>
               <a href="${me.perms['settings.view'] ? '#/settings?tab=notifications' : '#/profile'}">${icon('bell')} Notification settings</a>
-              ${canDecide(me) ? `<button id="lite-back" class="m-only">${icon('check')} Simple phone view</button>` : ''}
               <button id="logout-btn">${icon('logout')} Sign out</button>
             </div>
           </div>
@@ -179,8 +178,6 @@ function renderShell() {
       <div class="scrim" id="scrim"></div>
     </div>`;
   wireHeader();
-  const liteBack = $('#lite-back');
-  if (liteBack) liteBack.addEventListener('click', () => { setView(null); location.reload(); });
   const toggle = (open) => document.body.classList.toggle('nav-open', open);
   $('#menu-btn').addEventListener('click', () => toggle(!document.body.classList.contains('nav-open')));
   $('#m-more').addEventListener('click', () => toggle(!document.body.classList.contains('nav-open')));
@@ -270,18 +267,9 @@ async function start() {
   if (state.me.mustChange) { renderForceChange(root, state.brand, () => start()); return; }
   // signed in: a 401 from now on means the session ended
   setUnauthorizedHandler(() => { toast('Your session ended. Please sign in again.', 'error'); setTimeout(() => location.reload(), 1200); });
-  // heads on a phone get the small approve / reject app; turning the screen into a bigger one swaps back
-  const lite = wantsLite(state.me);
-  PHONE.addEventListener('change', () => { if (wantsLite(state.me) !== lite) location.reload(); });
+  // the same full system on every screen (on a phone: bottom tabs + "More" menu)
   registerWorker();
   resyncPush('/api/push/subscribe');
-  if (lite) {
-    renderLite(root, ctx, { bell: bellHtml() });
-    wireHeader();
-    loadBell();
-    setInterval(loadBell, 60000);
-    return;
-  }
   renderShell();
   loadBell();
   setInterval(() => { loadBell(); refreshBadge(); }, 60000);

@@ -73,7 +73,8 @@ export default async function render(view, ctx) {
   $('#add').addEventListener('click', async () => {
     const fields = [
       { name: 'name', label: 'Name', required: true },
-      { name: 'email', label: 'Email', type: 'email', required: true },
+      { name: 'email', label: 'Email', type: 'email', required: true,
+        help: 'Only for people who are not employees. For an employee use Employees → System access.' },
       { name: 'role', label: 'Role', type: 'select', options: roleOptions },
       designationField,
     ];
