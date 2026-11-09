@@ -49,17 +49,17 @@ const ICONS = {
   bars: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
 };
 // phone screens: bottom tabs (the first ones the person can open: 5 for an employee - My Leave, Balance,
-// Profile like the employee app - else 4) + "More" for the full menu
-const PHONE_TABS = [['home', 'Home'], ['approvals', 'Approvals'], ['my-leave', 'My Leave'], ['balance', 'Balance'], ['me', 'Profile'],
+// Profile like the employee app, then Home - else 4) + "More" for the full menu
+const PHONE_TABS = [['my-leave', 'My Leave'], ['balance', 'Balance'], ['me', 'Profile'], ['home', 'Home'], ['approvals', 'Approvals'],
   ['calendar', 'Calendar'], ['requests', 'Requests'], ['summary', 'Chart']];
 export const icon = (name) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[name] || ''}"/></svg>`;
 
 const ROUTES = [
-  { path: 'home', label: 'Home', icon: 'home', page: home },
-  // only for a login that is also an employee (a head / admin who takes leave too): the employee app screens
+  // only for a login that is also an employee (a head / admin who takes leave too): the employee app screens, first
   { path: 'my-leave', label: 'My Leave', icon: 'list', page: mineScreen('home'), perm: 'mine.view', employee: true },
   { path: 'balance', label: 'Balance', icon: 'bars', page: mineScreen('balance'), perm: 'mine.view', employee: true },
   { path: 'me', label: 'Profile', icon: 'user', page: mineScreen('profile'), perm: 'mine.view', employee: true },
+  { path: 'home', label: 'Home', icon: 'home', page: home },
   { path: 'apply', label: 'Request Leave', icon: 'plus', page: apply, perm: 'leave.apply', employee: true },
   { path: 'approvals', label: 'Approvals', icon: 'check', page: approvals, perm: ['approve.decide', 'requests.manage'], badge: 'leave' },
   // Work From Home / Onsite requests (not leave)
@@ -238,7 +238,7 @@ async function route() {
   const view = $('#view');
   if (!view) return;
   const [path, queryString] = (location.hash.replace(/^#\/?/, '') || 'home').split('?');
-  const r = ROUTES.find((x) => x.path === path) || ROUTES[0];
+  const r = ROUTES.find((x) => x.path === path) || ROUTES.find((x) => x.path === 'home');
   document.body.classList.remove('nav-open');
   $$('.nav a, .m-tabs a').forEach((a) => a.classList.toggle('active', a.dataset.path === r.path));
   const tabbed = $$('.m-tabs a').some((a) => a.dataset.path === r.path);
