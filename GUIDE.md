@@ -320,7 +320,9 @@ Everyone uses the **same sign-in** (email + password), on the system page or the
 | Is both (an employee who is also a Department head / Admin / Super admin) | The system **with My Leave** - also from the phone app |
 
 The system looks the same on a computer and on a phone (on a phone: bottom tabs + **More** menu).
-**My Leave / Request Leave** only show for a login that is also an employee.
+**My Leave, Balance and Profile** only show for a login that is also an employee. They are the **same screens as
+the employee app**: My Leave = the All / Pending / Approved list with **New Request** (Leave, Work From Home,
+Late Arrival); Balance and Profile are the same too. On a phone they are in the bottom tabs.
 
 ### One person = one account
 

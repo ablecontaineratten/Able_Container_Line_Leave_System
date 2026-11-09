@@ -6,7 +6,7 @@ import { registerWorker, resyncPush } from './push.js';
 import { setTimeZone } from './components/requests.js';
 const greeting = () => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'; };
 import home from './pages/home.js';
-import myLeave from './pages/my-leave.js';
+import { mineScreen } from './pages/mine.js';
 import apply from './pages/apply.js';
 import approvals from './pages/approvals.js';
 import requests from './pages/requests.js';
@@ -46,15 +46,20 @@ const ICONS = {
   more: 'M4 6h16M4 12h16M4 18h10',
   clock: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2',
   pin: 'M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21zM12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
+  bars: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
 };
-// phone screens: bottom tabs (first 4 of these the person can open) + "More" for the full menu
-const PHONE_TABS = [['home', 'Home'], ['approvals', 'Approvals'], ['my-leave', 'My Leave'], ['calendar', 'Calendar'], ['requests', 'Requests'], ['summary', 'Chart']];
+// phone screens: bottom tabs (the first ones the person can open: 5 for an employee - My Leave, Balance,
+// Profile like the employee app - else 4) + "More" for the full menu
+const PHONE_TABS = [['home', 'Home'], ['approvals', 'Approvals'], ['my-leave', 'My Leave'], ['balance', 'Balance'], ['me', 'Profile'],
+  ['calendar', 'Calendar'], ['requests', 'Requests'], ['summary', 'Chart']];
 export const icon = (name) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[name] || ''}"/></svg>`;
 
 const ROUTES = [
   { path: 'home', label: 'Home', icon: 'home', page: home },
-  // only for people whose login email is also in Employees (for example a head who takes leave too)
-  { path: 'my-leave', label: 'My Leave', icon: 'list', page: myLeave, perm: 'mine.view', employee: true },
+  // only for a login that is also an employee (a head / admin who takes leave too): the employee app screens
+  { path: 'my-leave', label: 'My Leave', icon: 'list', page: mineScreen('home'), perm: 'mine.view', employee: true },
+  { path: 'balance', label: 'Balance', icon: 'bars', page: mineScreen('balance'), perm: 'mine.view', employee: true },
+  { path: 'me', label: 'Profile', icon: 'user', page: mineScreen('profile'), perm: 'mine.view', employee: true },
   { path: 'apply', label: 'Request Leave', icon: 'plus', page: apply, perm: 'leave.apply', employee: true },
   { path: 'approvals', label: 'Approvals', icon: 'check', page: approvals, perm: ['approve.decide', 'requests.manage'], badge: 'leave' },
   // Work From Home / Onsite requests (not leave)
@@ -144,7 +149,7 @@ function renderShell() {
     group = r.group || group;
     return `${head}<a href="#/${r.path}" data-path="${r.path}">${icon(r.icon)}<span>${esc(r.label)}</span>${r.badge ? `<em class="nav-badge js-badge" data-badge="${r.badge}" hidden></em>` : ''}</a>`;
   }).join('');
-  const tabs = PHONE_TABS.map(([p, label]) => [items.find((r) => r.path === p), label]).filter(([r]) => r).slice(0, 4)
+  const tabs = PHONE_TABS.map(([p, label]) => [items.find((r) => r.path === p), label]).filter(([r]) => r).slice(0, me.employee ? 5 : 4)
     .map(([r, label]) => `<a href="#/${r.path}" data-path="${r.path}">${icon(r.icon)}<span>${esc(label)}</span>${r.badge ? `<em class="js-badge" data-badge="${r.badge}" hidden></em>` : ''}</a>`).join('');
   const canApply = items.some((r) => r.path === 'apply');
   const initials = me.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
@@ -240,7 +245,7 @@ async function route() {
   const more = $('#m-more');
   if (more) more.classList.toggle('active', !tabbed);
   const fab = $('#m-fab');
-  if (fab) fab.hidden = r.path !== 'home' && r.path !== 'my-leave';
+  if (fab) fab.hidden = r.path !== 'home';          // My Leave / Balance / Profile have their own "New Request"
   if (!allowed(r)) { view.innerHTML = '<div class="empty">You do not have access to this page.</div>'; return; }
   const token = ++routeToken;
   view.innerHTML = loadingHtml();

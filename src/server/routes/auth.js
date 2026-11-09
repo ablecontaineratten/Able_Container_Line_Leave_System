@@ -89,6 +89,18 @@ async function signin(c) {
 // Signs out of BOTH the system and the leave app (they are one person)
 const logout = (c) => signOutBoth(c);
 
+// The system shows the employee app screens (My Leave, Balance, Profile) of a head / admin / super admin who
+// is also an employee: make sure the leave app session of the SAME person is open (no second sign-in)
+async function mySession(c) {
+  const e = c.me.employee;
+  if (!e) fail(400, 'Your login is not linked to an employee record. Please ask the Super admin.');
+  if (!isEmail(e.email)) fail(400, 'Your employee record has no email. Please ask the Super admin.');
+  const id = await cookieSessionId(c.request, PORTAL_COOKIE);
+  const open = id && await first(c.env, 'SELECT employee_id FROM employee_sessions WHERE id = ? AND expires_at > ?', id, Math.floor(Date.now() / 1000));
+  if (open && open.employee_id === e.id) return { ok: true };
+  return withCookies({ ok: true }, [portalCookie(c, await createPortalSession(c.env, e.id))]);
+}
+
 
 // The other devices of this person (system and leave app) are signed out; this one stays signed in
 async function signOutOthers(c, userId) {
@@ -181,6 +193,7 @@ export default [
   { method: 'POST', path: '/api/auth/logout', auth: 'optional', handler: logout },
   { method: 'POST', path: '/api/auth/forgot', auth: false, handler: forgot },
   { method: 'POST', path: '/api/auth/reset', auth: false, handler: reset },
-  { method: 'POST', path: '/api/auth/password', allowMustChange: true, handler: changePassword },  { method: 'GET', path: '/api/auth/me', allowMustChange: true, handler: me },
+  { method: 'POST', path: '/api/auth/password', allowMustChange: true, handler: changePassword },
+  { method: 'POST', path: '/api/auth/my-session', perm: 'mine.view', handler: mySession },  { method: 'GET', path: '/api/auth/me', allowMustChange: true, handler: me },
   { method: 'GET', path: '/api/bootstrap', allowMustChange: true, handler: bootstrap },
 ];

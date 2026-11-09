@@ -839,3 +839,14 @@ th.late-col, td.late-col { background: #fff8ec; }
 .acc-badge { white-space: nowrap; }
 .acc-head { background: #e8edff; color: #1b2a6b; }
 .acc-admin { background: linear-gradient(135deg, #1b2a6b, #0d3b91); color: #fff; }
+
+/* Employee app screens inside the system (My Leave · Balance · Profile of an employee who is also a head / admin) */
+:root { --sky: #eaedf8; --navy-deep: #16204f; --ring: rgba(40, 57, 138, .14); }
+.rq.emp-embed { min-height: 0; margin: 0; background: none; overflow: visible; }
+.emp-embed .app { max-width: 640px; margin: 0 auto; padding: 0 0 110px; }
+.emp-embed .app-title.pad-top { margin: 0 0 18px; }
+.emp-embed .app-top { position: static; margin: 0 0 16px; padding: 0; background: none; backdrop-filter: none; }
+.emp-embed .fab { right: 24px; bottom: 28px; }
+@media (max-width: 760px) {
+  .emp-embed .fab { right: 16px; bottom: calc(86px + env(safe-area-inset-bottom)); }
+}
