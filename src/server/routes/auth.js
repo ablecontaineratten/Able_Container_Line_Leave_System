@@ -89,13 +89,6 @@ async function signin(c) {
 // Signs out of BOTH the system and the leave app (they are one person)
 const logout = (c) => signOutBoth(c);
 
-// Employee ⇄ Admin switch: from the system to the leave app (same person, no second sign-in)
-async function toEmployee(c) {
-  const e = c.me.employee;
-  if (!e) fail(400, 'Your login is not linked to an employee record. Please ask the Super admin.');
-  if (!isEmail(e.email)) fail(400, 'Your employee record has no email. Please ask the Super admin.');
-  return withCookies({ ok: true, target: '/request/' }, [portalCookie(c, await createPortalSession(c.env, e.id))]);
-}
 
 // The other devices of this person (system and leave app) are signed out; this one stays signed in
 async function signOutOthers(c, userId) {
@@ -188,8 +181,6 @@ export default [
   { method: 'POST', path: '/api/auth/logout', auth: 'optional', handler: logout },
   { method: 'POST', path: '/api/auth/forgot', auth: false, handler: forgot },
   { method: 'POST', path: '/api/auth/reset', auth: false, handler: reset },
-  { method: 'POST', path: '/api/auth/password', allowMustChange: true, handler: changePassword },
-  { method: 'POST', path: '/api/auth/to-employee', handler: toEmployee },
-  { method: 'GET', path: '/api/auth/me', allowMustChange: true, handler: me },
+  { method: 'POST', path: '/api/auth/password', allowMustChange: true, handler: changePassword },  { method: 'GET', path: '/api/auth/me', allowMustChange: true, handler: me },
   { method: 'GET', path: '/api/bootstrap', allowMustChange: true, handler: bootstrap },
 ];

@@ -5,7 +5,6 @@ import { renderForceChange, renderLogin, renderSetup } from './pages/auth.js';
 import { registerWorker, resyncPush } from './push.js';
 import { setTimeZone } from './components/requests.js';
 import { PHONE, canDecide, greeting, renderLite, setView, wantsLite } from './lite.js';
-import { modeSwitchHtml, wireModeSwitch } from './mode.js';
 import home from './pages/home.js';
 import myLeave from './pages/my-leave.js';
 import apply from './pages/apply.js';
@@ -119,15 +118,6 @@ const bellHtml = () => `<img class="trial-stamp" src="/img/trial-stamp.svg" alt=
     <div class="dropdown bell-panel" id="bell-panel" hidden></div>
   </div>`;
 
-// Employee ⇄ Admin switch: only for a login that is also an employee (a head / admin who takes leave)
-const modeSlot = () => (state.me.employee ? `<div class="mode-slot">${modeSwitchHtml('admin')}</div>` : '');
-function wireMode() {
-  wireModeSwitch(root, 'admin', async () => {
-    await post('/auth/to-employee');          // opens the leave app session of the same person
-    location.href = '/request/';
-  }, (msg) => toast(msg, 'error'));
-}
-
 // account menu + bell (the same in the full system and the phone app)
 function wireHeader() {
   const dd = $('#user-dd');
@@ -169,7 +159,6 @@ function renderShell() {
         <header class="topbar">
           <button class="icon-btn menu-btn" id="menu-btn" aria-label="Menu">${icon('menu')}</button>
           <div class="spacer"></div>
-          ${modeSlot()}
           ${bellHtml()}
           <div class="user-menu">
             <button class="user-btn" id="user-btn" aria-haspopup="true"><span class="avatar">${esc(initials)}</span>
@@ -190,7 +179,6 @@ function renderShell() {
       <div class="scrim" id="scrim"></div>
     </div>`;
   wireHeader();
-  wireMode();
   const liteBack = $('#lite-back');
   if (liteBack) liteBack.addEventListener('click', () => { setView(null); location.reload(); });
   const toggle = (open) => document.body.classList.toggle('nav-open', open);
@@ -288,9 +276,8 @@ async function start() {
   registerWorker();
   resyncPush('/api/push/subscribe');
   if (lite) {
-    renderLite(root, ctx, { bell: bellHtml(), modeSwitch: modeSlot() });
+    renderLite(root, ctx, { bell: bellHtml() });
     wireHeader();
-    wireMode();
     loadBell();
     setInterval(loadBell, 60000);
     return;

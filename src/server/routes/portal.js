@@ -4,13 +4,12 @@
 import { all, first, run } from '../db.js';
 import { cookie, fail, getCookie, HttpError, readJson, withCookies } from '../http.js';
 import {
-  checkPasswordRules, cookieSessionId, hashPassword, loadSession, randomHex, SESSION_COOKIE, sha256, syncPasswordToUser, verifyPassword,
+  checkPasswordRules, cookieSessionId, hashPassword, randomHex, SESSION_COOKIE, sha256, syncPasswordToUser, verifyPassword,
 } from '../auth.js';
-import { scopeSql } from '../permissions.js';
 import { getSettings, weekendSet } from '../settings.js';
 import { balanceSummary, createRequest, decideRequests, getHolidaySet, getLeaveTypes, workingDates } from '../leave.js';
 import { clean, isEmail, lower, nowIso, todayIn } from '../utils.js';
-import { portalWorkRows, workPendingCount } from './work.js';
+import { portalWorkRows } from './work.js';
 import { portalLateRows } from './late.js';
 
 export const DEFAULT_PASSWORD = 'user@123';
@@ -115,26 +114,9 @@ export async function signOutBoth(c) {
 
 const logout = (c) => signOutBoth(c);
 
-// Employee ⇄ Admin switch: null for a plain employee; else whether the system session of the same person is
-// open, and how many leave / Work From Home requests wait for them (the badge on "Admin")
-async function adminInfo(c, e) {
-  const u = await first(c.env, `SELECT id FROM users WHERE employee_id = ? AND status = 'active'`, e.id);
-  if (!u) return null;
-  const me = await loadSession(c.env, c.request).catch(() => null);
-  if (!me || me.id !== u.id || me.mustChange) return { signedIn: false, pending: 0 };
-  let pending = await workPendingCount(c.env, me);
-  if (me.perms['approve.decide'] || me.perms['requests.manage']) {
-    const s = scopeSql(me);
-    const row = await first(c.env, `SELECT COUNT(*) AS n FROM leave_requests WHERE status = 'Pending' AND ${s.sql} AND (employee_id IS NULL OR employee_id <> ?)`,
-      ...s.args, e.id);
-    pending += row.n;
-  }
-  return { signedIn: true, pending };
-}
-
 async function me(c) {
   const e = await portalEmployee(c);
-  return { employee: publicEmployee(e), admin: await adminInfo(c, e), ...(await brand(c)) };
+  return { employee: publicEmployee(e), ...(await brand(c)) };
 }
 
 async function changePassword(c) {

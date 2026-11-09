@@ -2,7 +2,6 @@
 // Sign in (email + password) → Home (leave list + Apply Leave) · Balance · Profile.
 import { $, $$, addDays, daysText, esc, fmtDate, fmtDateTime, toUtc, whenText } from './ui.js';
 import { enablePush, PUSH_HELP, pushState, registerWorker, resyncPush } from './push.js';
-import { modeSwitchHtml, storedMode, wireModeSwitch } from './mode.js';
 
 const root = $('#root');
 const newId = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}-x`);
@@ -87,9 +86,7 @@ function setMode(mode) {
 
 function shell(content, { nav = '', fab = false } = {}) {
   setMode('app');
-  // Employee ⇄ Admin switch: only for an employee who is also a Department head / Admin
-  const modeBar = nav && state.admin ? `<div class="mode-bar">${modeSwitchHtml('emp', state.admin.pending)}</div>` : '';
-  root.innerHTML = `<div class="app">${modeBar}${content}</div>
+  root.innerHTML = `<div class="app">${content}</div>
     ${fab ? `<button class="fab" id="fab" type="button">${ICON.plus}<span>New Request</span></button>` : ''}
     ${nav ? `<nav class="tabbar">
       <button type="button" data-nav="home" class="${nav === 'home' ? 'on' : ''}">${ICON.home}<span>Home</span></button>
@@ -99,8 +96,6 @@ function shell(content, { nav = '', fab = false } = {}) {
   $$('[data-nav]').forEach((b) => b.addEventListener('click', () => ({ home: showHome, balance: showBalance, profile: showProfile })[b.dataset.nav]()));
   const fabBtn = $('#fab');
   if (fabBtn) fabBtn.addEventListener('click', openNewRequest);
-  // the system ('/') opens with the same sign-in (or asks to sign in if that session ended)
-  if (modeBar) wireModeSwitch(root, 'emp', () => { location.href = '/'; });
   window.scrollTo(0, 0);
 }
 
@@ -148,8 +143,7 @@ function showLogin(notice = '') {
       // one sign-in for everyone: heads / admins go to the system, employees stay here
       const res = await api('/auth/signin', { email: form.email.value.trim(), password: form.password.value });
       remember(form.email.value.trim().toLowerCase());
-      // a head / admin who is also an employee opens in the mode used last time (first time: Admin)
-      if (res.target === '/' && !(res.both && storedMode() === 'emp')) { location.href = '/'; return; }
+      if (res.target === '/') { location.href = '/'; return; }
       await start();
     } catch (err) {
       errorBox($('.form-error', form), err.message);
@@ -826,7 +820,6 @@ async function start() {
     const me = await res.json();
     if (!res.ok) throw new Error(me.error || 'Could not load the portal.');
     state.employee = me.employee;
-    state.admin = me.admin || null;           // also a head / admin: { signedIn, pending }
     registerWorker();
     resyncPush('/api/portal/push/subscribe');
     showHome();

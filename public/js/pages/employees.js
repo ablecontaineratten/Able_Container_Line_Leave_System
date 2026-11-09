@@ -50,8 +50,8 @@ export default async function render(view, ctx) {
     const res = await formDialog({
       title: `System access · ${e.name}`, fields: accessFields, submitText: 'Save access',
       values: { access: e.access === 'super_admin' ? 'admin' : e.access, departments: e.head_of },
-      intro: `<p class="muted small">With system access, <b>${esc(e.name)}</b> signs in once with <b>${esc(e.email || 'their email')}</b> and the same password,
-        then moves between the leave app and the system with the <b>Employee | Admin</b> switch at the top.
+      intro: `<p class="muted small">With system access, <b>${esc(e.name)}</b> signs in to the system with <b>${esc(e.email || 'their email')}</b>
+        and the same password as the leave app. Their own leave is under <b>My Leave / Request Leave</b> in the system.
         They can never approve their own leave - it goes to the Super admin / Admin.</p>`,
       onSubmit: (v) => put(`/employees/${e.id}/access`, { access: v.access, departments: v.departments.map(Number) }),
     });
