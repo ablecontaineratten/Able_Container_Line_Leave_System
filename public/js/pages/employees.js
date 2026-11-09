@@ -22,6 +22,44 @@ export default async function render(view, ctx) {
   const departments = ctx.state.departments.filter((d) => me.scopeAll || me.deptIds.includes(d.id));
   let rows = data.rows;
 
+  // System access: an employee who is also a Department head / Admin (same sign-in, Employee ⇄ Admin switch).
+  // Only the Super admin gives or removes it.
+  const canAccess = canEdit && me.isSuper;
+  const deptName = (id) => (ctx.state.departments.find((d) => d.id === id) || {}).name || '';
+  function accessCell(e) {
+    if (e.access === 'super_admin') return '<span class="badge acc-badge acc-admin">Super admin</span>';
+    if (e.access === 'admin') return '<span class="badge acc-badge acc-admin">🛡 Admin</span>';
+    if (e.access === 'head') {
+      const names = e.head_of.map(deptName).filter(Boolean);
+      return `<span class="badge acc-badge acc-head">🛡 Department head</span>${names.length ? `<div class="muted small">${esc(names.join(', '))}</div>` : ''}`;
+    }
+    return '<span class="muted small">Employee only</span>';
+  }
+  const accessFields = [
+    { name: 'access', label: 'System access', type: 'select', full: true, options: [
+      { value: 'none', label: 'None - leave app only (normal employee)' },
+      { value: 'head', label: 'Department head - approves the leave of their department(s)' },
+      { value: 'admin', label: 'Admin' },
+    ] },
+    { name: 'departments', label: 'Head of these departments', type: 'multiselect', full: true, showIf: (v) => v.access !== 'none',
+      help: 'Their leave requests come to this person. Required for a Department head.',
+      options: ctx.state.departments.map((d) => ({ value: d.id, label: d.name })) },
+  ];
+  async function editAccess(e) {
+    if (!e.email && e.access === 'none') return toast(`Add an email for ${e.name} first (Edit) - it is used to sign in.`, 'error');
+    const res = await formDialog({
+      title: `System access · ${e.name}`, fields: accessFields, submitText: 'Save access',
+      values: { access: e.access === 'super_admin' ? 'admin' : e.access, departments: e.head_of },
+      intro: `<p class="muted small">With system access, <b>${esc(e.name)}</b> signs in once with <b>${esc(e.email || 'their email')}</b> and the same password,
+        then moves between the leave app and the system with the <b>Employee | Admin</b> switch at the top.
+        They can never approve their own leave - it goes to the Super admin / Admin.</p>`,
+      onSubmit: (v) => put(`/employees/${e.id}/access`, { access: v.access, departments: v.departments.map(Number) }),
+    });
+    if (!res) return;
+    toast(res.access === 'none' ? `${e.name} now uses only the leave app.` : `${e.name} has system access. ${res.password_note || ''}`);
+    reload();
+  }
+
   const fields = [
     { name: 'emp_no', label: 'Employee number', required: true, placeholder: 'EMP005' },
     { name: 'name', label: 'Full name', required: true },
@@ -58,7 +96,8 @@ export default async function render(view, ctx) {
     { label: 'Status', render: (e) => `<span class="badge ${e.status === 'Active' ? 'badge-approved' : 'badge-cancelled'}">${esc(e.status)}</span>` },
     { label: 'Portal', render: (e) => (!e.email ? '<span class="muted small">No email - cannot sign in</span>'
       : e.own_password ? '<span class="badge badge-approved">Own password</span>' : `<span class="badge badge-pending">Default (${DEFAULT_PASSWORD})</span>`) },
-    canEdit || canDelete ? { label: '', cls: 'actions', render: (e) => `${canEdit ? `<button class="btn btn-small" data-edit>Edit</button>${e.own_password ? ' <button class="btn btn-small" data-portal>Reset portal password</button>' : ''}` : ''} ${canDelete ? '<button class="btn btn-small btn-danger-outline" data-del>Delete</button>' : ''}` } : null,
+    { label: 'System access', render: accessCell },
+    canEdit || canDelete ? { label: '', cls: 'actions', render: (e) => `${canEdit ? `<button class="btn btn-small" data-edit>Edit</button>${e.own_password ? ' <button class="btn btn-small" data-portal>Reset portal password</button>' : ''}` : ''}${canAccess && e.access !== 'super_admin' ? ' <button class="btn btn-small" data-access>System access</button>' : ''} ${canDelete ? '<button class="btn btn-small btn-danger-outline" data-del>Delete</button>' : ''}` } : null,
   ].filter(Boolean);
 
   view.innerHTML = `${pageHead('Employees', '', `<button class="btn" id="export">Export CSV</button>
@@ -74,6 +113,7 @@ export default async function render(view, ctx) {
       const e = list[Number(b.closest('tr').dataset.index)];
       if (await formDialog({ title: `Edit ${e.name}`, fields, values: formValues(e), onSubmit: (v) => put(`/employees/${e.id}`, toServer(v)) })) { toast('Saved.'); reload(); }
     }));
+    el.querySelectorAll('[data-access]').forEach((b) => b.addEventListener('click', () => editAccess(list[Number(b.closest('tr').dataset.index)])));
     el.querySelectorAll('[data-portal]').forEach((b) => b.addEventListener('click', async () => {
       const e = list[Number(b.closest('tr').dataset.index)];
       if (!await confirmDialog({ title: 'Reset portal password',

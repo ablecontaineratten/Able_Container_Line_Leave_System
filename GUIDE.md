@@ -317,7 +317,21 @@ Everyone uses the **same sign-in** (email + password), on the system page or the
 |---|---|
 | Has a **Login account** (Super admin, Admin, Department head) and uses that password | **The system** |
 | Is only in **Employees** (password `user@123` or their own) | **The employee app** |
-| Is both, with the same password | The system, and is also signed in to the employee app |
+| Is both (an employee who is also a Department head / Admin) | The system, and is also signed in to the employee app |
+
+### An employee who is also a Department head / Admin (Employee ⇄ Admin switch)
+
+1. The **Super admin** opens **Employees**, clicks **System access** on the employee, and chooses
+   **Department head** (tick their department(s)) or **Admin**. Choosing **None** takes the access away again.
+   The employee needs an email; the login account is made and linked automatically.
+2. The person signs in **once**, with the **same password** for the system and the employee app.
+   If they never set their own password, the first password is `user@123` and they must choose their own.
+3. A **Employee | Admin** switch shows at the top of both apps. *Employee* = their own leave, balance and
+   WFH requests; *Admin* = approvals and reports. The red number on *Admin* = requests waiting for them.
+   After the next sign-in the app opens in the mode they used last (the first time: Admin).
+4. They can **never approve their own leave**; it goes to the Super admin / Admin.
+5. Making the employee **Inactive** (or deleting them) removes the system access at once.
+   Every give / remove is saved in the `access_log` table.
 
 ---
 

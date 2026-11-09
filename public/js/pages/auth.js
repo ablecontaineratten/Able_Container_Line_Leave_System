@@ -1,6 +1,7 @@
 // Sign in, forgot password, first-time setup and "choose your own password"
 import { post } from '../api.js';
 import { $, esc } from '../ui.js';
+import { storedMode } from '../mode.js';
 
 // The company video plays full screen under a soft blue / violet glow; the form sits in the middle as glass
 function frame(root, brand, title, sub, inner) {
@@ -87,7 +88,9 @@ export function renderLogin(root, brand, onDone) {
   // one sign-in for everyone: the server says which app this person uses
   handle(form, async (v) => {
     const res = await post('/auth/signin', { ...v, remember: form.remember.checked });
-    if (res.target && res.target !== '/') location.href = res.target;
+    // an employee who is also a head / admin opens in the mode used last time (Employee ⇄ Admin switch)
+    if (res.both && storedMode() === 'emp') location.href = '/request/';
+    else if (res.target && res.target !== '/') location.href = res.target;
     else onDone();
   });
   $('#forgot-link').addEventListener('click', () => renderForgot(root, brand, onDone, form.email.value));

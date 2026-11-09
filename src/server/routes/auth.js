@@ -1,13 +1,13 @@
 // Sign in, sign out, first-time setup, passwords
 import { all, first, run } from '../db.js';
-import { cookie, fail, json, readJson } from '../http.js';
+import { cookie, fail, json, readJson, withCookies } from '../http.js';
 import {
-  buildMe, checkPasswordRules, createSession, MAX_TRIES, publicMe, REMEMBER_TTL, SESSION_COOKIE, setPassword, sha256, verifyPassword,
+  buildMe, checkPasswordRules, cookieSessionId, createSession, MAX_TRIES, publicMe, REMEMBER_TTL, SESSION_COOKIE, setPassword, sha256, verifyPassword,
 } from '../auth.js';
 import { getSettings, publicSettings, saveSettings } from '../settings.js';
 import { getLeaveTypes } from '../leave.js';
 import { layout, sendEmail } from '../email.js';
-import { checkPortalPassword, createPortalSession, findPortalEmployee, portalCookie } from './portal.js';
+import { checkPortalPassword, createPortalSession, findPortalEmployee, PORTAL_COOKIE, portalCookie, signOutBoth } from './portal.js';
 import { clean, esc, isEmail, lower, nowIso, todayIn } from '../utils.js';
 
 const COOKIE_DAYS = 30 * 24 * 3600;
@@ -52,7 +52,8 @@ async function signin(c) {
   const secure = c.url.protocol === 'https:';
 
   const u = await first(env, 'SELECT * FROM users WHERE email = ? COLLATE NOCASE', email);
-  if (u) {
+  // an employee whose system access was taken away (disabled login) still signs in to the leave app
+  if (u && (u.status === 'active' || !u.employee_id)) {
     if (lockedNow(u.locked_until)) fail(429, 'Too many wrong passwords. Please try again in 15 minutes.');
     if (u.status !== 'active') fail(401, 'This account is disabled. Please ask an admin.');
     if (!await verifyPassword(password, u.password_hash, u.password_salt)) {
@@ -64,7 +65,13 @@ async function signin(c) {
     // "Keep me logged in": 30 days; otherwise until the browser is closed (and at most 12 hours of not using it)
     const remember = b.remember === true || b.remember === 'on';
     const token = await createSession(env, u.id, remember ? REMEMBER_TTL : undefined);
-    return json({ ok: true, target: '/' }, 200, { 'set-cookie': cookie(SESSION_COOKIE, token, { maxAge: remember ? COOKIE_DAYS : null, secure }) });
+    const cookies = [cookie(SESSION_COOKIE, token, { maxAge: remember ? COOKIE_DAYS : null, secure })];
+    // also an employee (Department head / Admin who takes leave): sign in to the leave app too,
+    // so the Employee ⇄ Admin switch works without signing in again
+    const emp = u.employee_id ? await first(env, `SELECT id, email, status FROM employees WHERE id = ?`, u.employee_id) : null;
+    const both = !!(emp && emp.status === 'Active' && isEmail(emp.email));
+    if (both) cookies.push(portalCookie(c, await createPortalSession(env, emp.id)));
+    return withCookies({ ok: true, target: '/', both }, cookies);
   }
 
   const e = await findPortalEmployee(env, email);
@@ -79,10 +86,24 @@ async function signin(c) {
   return json({ ok: true, target: '/request/' }, 200, { 'set-cookie': portalCookie(c, await createPortalSession(env, e.id)) });
 }
 
-async function logout(c) {
-  const me = c.me;
-  if (me) await run(c.env, 'DELETE FROM sessions WHERE id = ?', me.sessionId);
-  return json({ ok: true }, 200, { 'set-cookie': cookie(SESSION_COOKIE, '', { maxAge: 0, secure: c.url.protocol === 'https:' }) });
+// Signs out of BOTH the system and the leave app (they are one person)
+const logout = (c) => signOutBoth(c);
+
+// Employee ⇄ Admin switch: from the system to the leave app (same person, no second sign-in)
+async function toEmployee(c) {
+  const e = c.me.employee;
+  if (!e) fail(400, 'Your login is not linked to an employee record. Please ask the Super admin.');
+  if (!isEmail(e.email)) fail(400, 'Your employee record has no email. Please ask the Super admin.');
+  return withCookies({ ok: true, target: '/request/' }, [portalCookie(c, await createPortalSession(c.env, e.id))]);
+}
+
+// The other devices of this person (system and leave app) are signed out; this one stays signed in
+async function signOutOthers(c, userId) {
+  const empId = await cookieSessionId(c.request, PORTAL_COOKIE);
+  await c.env.DB.batch([
+    c.env.DB.prepare('DELETE FROM sessions WHERE user_id = ? AND id <> ?').bind(userId, c.me ? c.me.sessionId : ''),
+    c.env.DB.prepare('DELETE FROM employee_sessions WHERE employee_id = (SELECT employee_id FROM users WHERE id = ?) AND id <> ?').bind(userId, empId),
+  ]);
 }
 
 async function changePassword(c) {
@@ -92,7 +113,7 @@ async function changePassword(c) {
   checkPasswordRules(b.password);
   if (b.password === b.current) fail(400, 'The new password must be different.');
   await setPassword(c.env, u.id, b.password, false);
-  await run(c.env, 'DELETE FROM sessions WHERE user_id = ? AND id <> ?', u.id, c.me.sessionId);
+  await signOutOthers(c, u.id);
   return { ok: true };
 }
 
@@ -133,6 +154,7 @@ async function reset(c) {
   await setPassword(c.env, u.id, b.password, false);
   await run(c.env, 'DELETE FROM reset_codes WHERE email = ?', email);
   await run(c.env, 'DELETE FROM sessions WHERE user_id = ?', u.id);
+  await run(c.env, 'DELETE FROM employee_sessions WHERE employee_id = (SELECT employee_id FROM users WHERE id = ?)', u.id);
   return { ok: true };
 }
 
@@ -167,6 +189,7 @@ export default [
   { method: 'POST', path: '/api/auth/forgot', auth: false, handler: forgot },
   { method: 'POST', path: '/api/auth/reset', auth: false, handler: reset },
   { method: 'POST', path: '/api/auth/password', allowMustChange: true, handler: changePassword },
+  { method: 'POST', path: '/api/auth/to-employee', handler: toEmployee },
   { method: 'GET', path: '/api/auth/me', allowMustChange: true, handler: me },
   { method: 'GET', path: '/api/bootstrap', allowMustChange: true, handler: bootstrap },
 ];

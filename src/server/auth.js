@@ -46,10 +46,28 @@ export function tempPassword() {
   return letters + digits;
 }
 
+// One person, one password: a login account linked to an employee (users.employee_id) and that
+// employee's leave app always share the same password hash
 export async function setPassword(env, userId, password, mustChange) {
   const { hash, salt } = await hashPassword(password);
-  await run(env, 'UPDATE users SET password_hash = ?, password_salt = ?, must_change = ?, failed_count = 0, locked_until = NULL WHERE id = ?',
-    hash, salt, mustChange ? 1 : 0, userId);
+  await env.DB.batch([
+    env.DB.prepare('UPDATE users SET password_hash = ?, password_salt = ?, must_change = ?, failed_count = 0, locked_until = NULL WHERE id = ?')
+      .bind(hash, salt, mustChange ? 1 : 0, userId),
+    env.DB.prepare(`UPDATE employees SET portal_hash = ?, portal_salt = ?, portal_failed = 0, portal_locked_until = NULL
+      WHERE id = (SELECT employee_id FROM users WHERE id = ?)`).bind(hash, salt, userId),
+  ]);
+}
+
+// The leave app changed the password: the linked login account gets the same one
+export function syncPasswordToUser(env, employeeId, hash, salt) {
+  return run(env, `UPDATE users SET password_hash = ?, password_salt = ?, must_change = 0, failed_count = 0, locked_until = NULL
+    WHERE employee_id = ?`, hash, salt, employeeId);
+}
+
+// The session id (hash of the cookie token) of a cookie, or ''
+export async function cookieSessionId(request, name) {
+  const token = getCookie(request, name);
+  return /^[a-f0-9]{64}$/.test(token) ? sha256(token) : '';
 }
 
 export const REMEMBER_TTL = 30 * 24 * 60 * 60; // "Keep me logged in"
@@ -78,14 +96,15 @@ export async function loadSession(env, request) {
   return me;
 }
 
-// Everything the server needs to know about the signed-in person (3 queries in one round trip)
+// Everything the server needs to know about the signed-in person (3 queries in one round trip).
+// The employee record is the linked one (users.employee_id), else the one with the same email.
 export async function buildMe(env, u) {
   const [acc, heads, emp] = await env.DB.batch([
     env.DB.prepare('SELECT perm_key, role, allowed FROM permissions'),
     env.DB.prepare('SELECT h.department_id, d.name FROM department_heads h JOIN departments d ON d.id = h.department_id WHERE h.user_id = ?').bind(u.id),
     env.DB.prepare(`SELECT e.id, e.emp_no, e.name, e.email, e.department_id, e.status, d.name AS department
                     FROM employees e LEFT JOIN departments d ON d.id = e.department_id
-                    WHERE e.email <> '' AND e.email = ? COLLATE NOCASE LIMIT 1`).bind(u.email),
+                    WHERE e.id = ? OR (? = 0 AND e.email <> '' AND e.email = ? COLLATE NOCASE) LIMIT 1`).bind(u.employee_id || 0, u.employee_id || 0, u.email),
   ]);
   const perms = permsFor(u.role, accessFromRows(acc.results));
   const employee = emp.results[0] && emp.results[0].status === 'Active' ? emp.results[0] : null;

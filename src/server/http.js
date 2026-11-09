@@ -18,6 +18,13 @@ export function json(data, status = 200, headers = {}) {
   });
 }
 
+// JSON with several Set-Cookie headers (a headers object can only hold one)
+export function withCookies(body, cookies) {
+  const res = json(body);
+  for (const k of cookies) res.headers.append('set-cookie', k);
+  return res;
+}
+
 export function html(body, status = 200) {
   return new Response(body, {
     status,

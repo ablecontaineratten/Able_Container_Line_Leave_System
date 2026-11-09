@@ -137,7 +137,8 @@ export function formDialog({ title, fields, values = {}, submitText = 'Save', on
     const errBox = form.querySelector('.form-error');
     // fields with showIf(values) only appear when it returns true (e.g. Designation only for Department heads)
     const shown = (f) => !f.showIf || f.showIf(readForm(form, fields));
-    const boxOf = (f) => { const el = form.elements[f.name]; return (el && el.closest ? el : el && el[0])?.closest('.field, .check'); };
+    // a multiselect is many checkboxes inside one .field: hide the whole field, not one choice
+    const boxOf = (f) => { const el = form.elements[f.name]; return (el && el.closest ? el : el && el[0])?.closest(f.type === 'multiselect' ? '.field' : '.field, .check'); };
     const syncShown = () => fields.filter((f) => f.showIf).forEach((f) => { const box = boxOf(f); if (box) box.hidden = !shown(f); });
     if (fields.some((f) => f.showIf)) { form.addEventListener('change', syncShown); form.addEventListener('input', syncShown); syncShown(); }
     m.el.querySelector('[data-cancel]').addEventListener('click', () => { m.close(); resolve(false); });

@@ -3,7 +3,7 @@
   "short_name": "Leave and Shift",
   "id": "/request/",
   "start_url": "/request/",
-  "scope": "/request/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#28398a",

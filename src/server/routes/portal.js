@@ -2,16 +2,20 @@
 // Every employee starts with the default password (DEFAULT_PASSWORD) until they change it in Settings.
 // Employees see their own balance and requests, and send leave requests.
 import { all, first, run } from '../db.js';
-import { cookie, fail, getCookie, HttpError, json, readJson } from '../http.js';
-import { checkPasswordRules, hashPassword, MAX_TRIES, randomHex, sha256, verifyPassword } from '../auth.js';
+import { cookie, fail, getCookie, HttpError, readJson, withCookies } from '../http.js';
+import {
+  checkPasswordRules, cookieSessionId, hashPassword, loadSession, randomHex, SESSION_COOKIE, sha256, syncPasswordToUser, verifyPassword,
+} from '../auth.js';
+import { scopeSql } from '../permissions.js';
 import { getSettings, weekendSet } from '../settings.js';
 import { balanceSummary, createRequest, decideRequests, getHolidaySet, getLeaveTypes, workingDates } from '../leave.js';
 import { clean, isEmail, lower, nowIso, todayIn } from '../utils.js';
-import { portalWorkRows } from './work.js';
+import { portalWorkRows, workPendingCount } from './work.js';
 import { portalLateRows } from './late.js';
 
 export const DEFAULT_PASSWORD = 'user@123';
-const COOKIE = 'lms_emp';
+export const PORTAL_COOKIE = 'lms_emp';
+const COOKIE = PORTAL_COOKIE;
 const TTL = 12 * 60 * 60;                 // 12 hours, extended while used
 const nowSec = () => Math.floor(Date.now() / 1000);
 
@@ -99,15 +103,38 @@ async function brand(c) {
   return { company_name: s.company_name, today: todayIn(s.timezone), timezone: s.timezone };
 }
 
-async function logout(c) {
-  const token = getCookie(c.request, COOKIE);
-  if (/^[a-f0-9]{64}$/.test(token)) await run(c.env, 'DELETE FROM employee_sessions WHERE id = ?', await sha256(token));
-  return json({ ok: true }, 200, { 'set-cookie': cookie(COOKIE, '', { maxAge: 0, secure: c.url.protocol === 'https:' }) });
+// Signs out of BOTH the leave app and the system (a head / admin is one person with one sign-in)
+export async function signOutBoth(c) {
+  const [adminId, empId] = await Promise.all([cookieSessionId(c.request, SESSION_COOKIE), cookieSessionId(c.request, COOKIE)]);
+  await c.env.DB.batch([
+    c.env.DB.prepare('DELETE FROM sessions WHERE id = ?').bind(adminId),
+    c.env.DB.prepare('DELETE FROM employee_sessions WHERE id = ?').bind(empId),
+  ]);
+  return withCookies({ ok: true }, [cookie(SESSION_COOKIE, '', { maxAge: 0, secure: c.url.protocol === 'https:' }), portalCookie(c, '')]);
+}
+
+const logout = (c) => signOutBoth(c);
+
+// Employee ⇄ Admin switch: null for a plain employee; else whether the system session of the same person is
+// open, and how many leave / Work From Home requests wait for them (the badge on "Admin")
+async function adminInfo(c, e) {
+  const u = await first(c.env, `SELECT id FROM users WHERE employee_id = ? AND status = 'active'`, e.id);
+  if (!u) return null;
+  const me = await loadSession(c.env, c.request).catch(() => null);
+  if (!me || me.id !== u.id || me.mustChange) return { signedIn: false, pending: 0 };
+  let pending = await workPendingCount(c.env, me);
+  if (me.perms['approve.decide'] || me.perms['requests.manage']) {
+    const s = scopeSql(me);
+    const row = await first(c.env, `SELECT COUNT(*) AS n FROM leave_requests WHERE status = 'Pending' AND ${s.sql} AND (employee_id IS NULL OR employee_id <> ?)`,
+      ...s.args, e.id);
+    pending += row.n;
+  }
+  return { signedIn: true, pending };
 }
 
 async function me(c) {
   const e = await portalEmployee(c);
-  return { employee: publicEmployee(e), ...(await brand(c)) };
+  return { employee: publicEmployee(e), admin: await adminInfo(c, e), ...(await brand(c)) };
 }
 
 async function changePassword(c) {
@@ -119,7 +146,12 @@ async function changePassword(c) {
   if (b.password === DEFAULT_PASSWORD) fail(400, 'Please choose a password different from the default one.');
   const { hash, salt } = await hashPassword(b.password);
   await run(c.env, 'UPDATE employees SET portal_hash = ?, portal_salt = ?, portal_must_change = 0 WHERE id = ?', hash, salt, e.id);
-  await run(c.env, 'DELETE FROM employee_sessions WHERE employee_id = ? AND id <> ?', e.id, e.sessionId);
+  await syncPasswordToUser(c.env, e.id, hash, salt);           // one password: the system login changes too
+  const adminId = await cookieSessionId(c.request, SESSION_COOKIE);
+  await c.env.DB.batch([
+    c.env.DB.prepare('DELETE FROM employee_sessions WHERE employee_id = ? AND id <> ?').bind(e.id, e.sessionId),
+    c.env.DB.prepare('DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE employee_id = ?) AND id <> ?').bind(e.id, adminId),
+  ]);
   return { ok: true };
 }
 

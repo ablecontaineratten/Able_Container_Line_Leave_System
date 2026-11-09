@@ -32,7 +32,7 @@ const I = {
 const initials = (name) => String(name || '?').split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 const hue = (s) => [...String(s)].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) % 12 * 30;
 
-export function renderLite(root, ctx, { bell }) {
+export function renderLite(root, ctx, { bell, modeSwitch = '' }) {
   const { me, settings } = ctx.state;
   const tz = settings.timezone;
   const canApply = !!(me.employee && me.perms['leave.apply']);
@@ -54,6 +54,7 @@ export function renderLite(root, ctx, { bell }) {
         </div>
         <div class="spacer"></div>
         ${bell}
+        ${modeSwitch}
       </header>
       <h1 class="lite-title">Requests</h1>
       <div id="lite-push"></div>
