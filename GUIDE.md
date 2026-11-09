@@ -319,10 +319,17 @@ Everyone uses the **same sign-in** (email + password), on the system page or the
 | Is only in **Employees** (password `user@123` or their own) | **The employee app** |
 | Is both (an employee who is also a Department head / Admin / Super admin) | The system **with My Leave** - also from the phone app |
 
-The system looks the same on a computer and on a phone (on a phone: bottom tabs + **More** menu).
-**My Leave, Balance and Profile** only show for a login that is also an employee. They are the **same screens as
-the employee app**: My Leave = the All / Pending / Approved list with **New Request** (Leave, Work From Home,
-Late Arrival); Balance and Profile are the same too. On a phone they are in the bottom tabs.
+| Who | 📱 Phone | 🖥️ Computer |
+|---|---|---|
+| Employee and also head / admin / super admin | 4 bottom tabs: **My Leave · Balance · Requests · Profile** | **Employee \| System** switch (top right). *Employee*: My Leave, Balance, Profile. *System*: the full system. |
+| Head / admin / super admin, not an employee | Only **Requests** (Waiting / Done, Approve / Reject) | The full system |
+| Plain employee | The employee app | The employee app (wider layout) |
+
+- **My Leave, Balance, Profile** are the **same screens as the employee app** (All / Pending / Approved list,
+  **New Request**: Leave, Work From Home, Late Arrival). On a computer they use the full width
+  (cards in a grid, details in a dialog, Profile in two columns).
+- **Requests** = leave and WFH requests waiting for this person (**Waiting**) and the ones decided (**Done**).
+- The computer remembers the last mode (first time: *System*). A link to a page of the other mode switches by itself.
 
 ### One person = one account
 

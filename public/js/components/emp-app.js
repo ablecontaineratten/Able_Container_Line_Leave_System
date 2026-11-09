@@ -479,7 +479,8 @@ function showProfile() {
   if (elsewhere('profile')) return;
   const e = state.employee;
   const row = (k, v) => `<div class="sheet-row"><span>${esc(k)}</span><b>${esc(v || '-')}</b></div>`;
-  shell(`<div class="profile-head">
+  // two columns on a wide screen (photo + details | notifications + password), one on a phone
+  shell(`<div class="profile-grid"><div class="pg-left"><div class="profile-head">
       <label class="photo-pick" aria-label="Change profile photo">
         ${avatar(e, 'big')}
         <input type="file" id="photo-file" accept="image/*" hidden></label>
@@ -488,9 +489,10 @@ function showProfile() {
       <b>${esc(e.name)}</b><span>${esc(e.emp_no)}${e.department ? ` · ${esc(e.department)}` : ''}</span>
     </div>
     <div class="app-box">${row('Email', e.email)}${row('Employee number', e.emp_no)}${row('Department', e.department)}</div>
+    </div><div class="pg-right">
     <div id="notif-box"></div>
     <h2 class="app-h2">${ICON.lock} Change password</h2>
-    ${e.using_default ? '<p class="notice">You are still using the default password. Please choose your own.</p>' : ''}
+    ${e.using_default ? '<p class="notice pw-warn">You are still using the default password. Please choose your own.</p>' : ''}
     <form class="app-box form" id="pw-form" novalidate>
       <label class="field"><span>Current password</span><input type="password" name="current" autocomplete="current-password" required></label>
       <label class="field"><span>New password</span><input type="password" name="password" autocomplete="new-password" required><small>At least 8 characters, letters and numbers.</small></label>
@@ -499,7 +501,7 @@ function showProfile() {
       <p class="rq-ok" hidden>✓ Your password was changed.</p>
       <button class="btn-wide primary" type="submit"><span>Change password</span></button>
     </form>
-    <button class="btn-wide danger" id="sign-out" type="button">${ICON.out}<span>Sign out</span></button>`, { nav: 'profile' });
+    <button class="btn-wide danger" id="sign-out" type="button">${ICON.out}<span>Sign out</span></button></div></div>`, { nav: 'profile' });
   $('#sign-out').addEventListener('click', async () => {
     await api('/portal/logout', {}).catch(() => {});          // signs out of the system too
     state.employee = null;
@@ -537,7 +539,7 @@ function showProfile() {
       err.hidden = true;
       form.reset();
       ok.hidden = false;
-      const warn = $('.app > .notice');
+      const warn = $('.pw-warn');
       if (warn) warn.remove();
     } catch (ex) { if (ex.message !== 'SIGNED_OUT') errorBox(err, ex.message); }
     busy(btn, false, 'Change password');

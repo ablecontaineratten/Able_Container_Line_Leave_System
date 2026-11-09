@@ -7,6 +7,7 @@ import { setTimeZone } from './components/requests.js';
 const greeting = () => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'; };
 import home from './pages/home.js';
 import { mineScreen } from './pages/mine.js';
+import inbox from './pages/inbox.js';
 import apply from './pages/apply.js';
 import approvals from './pages/approvals.js';
 import requests from './pages/requests.js';
@@ -48,19 +49,39 @@ const ICONS = {
   pin: 'M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21zM12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
   bars: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
 };
-// phone screens: bottom tabs (the first ones the person can open: 5 for an employee - My Leave, Balance,
-// Profile like the employee app, then Home - else 4) + "More" for the full menu
-const PHONE_TABS = [['my-leave', 'My Leave'], ['balance', 'Balance'], ['me', 'Profile'], ['home', 'Home'], ['approvals', 'Approvals'],
-  ['calendar', 'Calendar'], ['requests', 'Requests'], ['summary', 'Chart']];
+// ---- Layouts
+// desktop: the full system. A login that is also an employee (a head / admin / super admin who takes leave)
+//   gets the Employee | System switch: Employee = My Leave, Balance, Profile; System = the pure system.
+// phone, also an employee: 4 bottom tabs - My Leave, Balance, Requests (Waiting / Done), Profile
+// phone, not an employee but approves: only Requests (Waiting / Done)
+// phone, anyone else: the system with bottom tabs + "More"
+const PHONE = window.matchMedia('(max-width: 760px)');
+const canDecide = (me) => !!(me.perms['approve.decide'] || me.perms['requests.manage']);
+function layout() {
+  if (!PHONE.matches) return 'desk';
+  if (state.me.employee) return 'phone-emp';
+  return canDecide(state.me) ? 'phone-inbox' : 'phone';
+}
+const MODE_KEY = 'lms_desk_mode';                 // desktop mode of this device: 'emp' | 'sys' (first time: System)
+const deskMode = () => { try { return localStorage.getItem(MODE_KEY) === 'emp' ? 'emp' : 'sys'; } catch { return 'sys'; } };
+const setDeskMode = (m) => { try { localStorage.setItem(MODE_KEY, m); } catch { /* private mode */ } };
+const switchable = () => layout() === 'desk' && !!state.me.employee;
+
+const PHONE_EMP_TABS = [['my-leave', 'My Leave'], ['balance', 'Balance'], ['inbox', 'Requests'], ['me', 'Profile']];
+// other phones: the first 4 of these the person can open + "More" for the full menu
+const PHONE_TABS = [['home', 'Home'], ['approvals', 'Approvals'], ['calendar', 'Calendar'], ['requests', 'Requests'], ['summary', 'Chart']];
 export const icon = (name) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[name] || ''}"/></svg>`;
 
+// zone 'emp' = the employee app screens (Employee mode); the rest is the system (System mode)
 const ROUTES = [
-  // only for a login that is also an employee (a head / admin who takes leave too): the employee app screens, first
-  { path: 'my-leave', label: 'My Leave', icon: 'list', page: mineScreen('home'), perm: 'mine.view', employee: true },
-  { path: 'balance', label: 'Balance', icon: 'bars', page: mineScreen('balance'), perm: 'mine.view', employee: true },
-  { path: 'me', label: 'Profile', icon: 'user', page: mineScreen('profile'), perm: 'mine.view', employee: true },
+  // only for a login that is also an employee: the SAME screens as the employee app
+  { path: 'my-leave', label: 'My Leave', icon: 'list', page: mineScreen('home'), perm: 'mine.view', employee: true, zone: 'emp' },
+  { path: 'balance', label: 'Balance', icon: 'bars', page: mineScreen('balance'), perm: 'mine.view', employee: true, zone: 'emp' },
+  { path: 'me', label: 'Profile', icon: 'user', page: mineScreen('profile'), perm: 'mine.view', employee: true, zone: 'emp' },
+  // phone: leave / WFH requests waiting for me, Approve / Reject
+  { path: 'inbox', label: 'Requests', icon: 'inbox', page: inbox, perm: ['approve.decide', 'requests.manage'], badge: 'all', hidden: true, zone: 'any' },
   { path: 'home', label: 'Home', icon: 'home', page: home },
-  { path: 'apply', label: 'Request Leave', icon: 'plus', page: apply, perm: 'leave.apply', employee: true },
+  { path: 'apply', label: 'Request Leave', icon: 'plus', page: apply, perm: 'leave.apply', employee: true, zone: 'emp', hidden: true },
   { path: 'approvals', label: 'Approvals', icon: 'check', page: approvals, perm: ['approve.decide', 'requests.manage'], badge: 'leave' },
   // Work From Home / Onsite requests (not leave)
   { path: 'work', label: 'WFH Request', icon: 'home', page: work, perm: ['approve.decide', 'requests.manage'], badge: 'work' },
@@ -76,8 +97,17 @@ const ROUTES = [
   { path: 'settings', label: 'Settings', icon: 'gear', page: settings, perm: 'settings.view', group: 'Admin' },
   { path: 'access', label: 'Access control', icon: 'shield', page: access, perm: 'access.edit', group: 'Admin' },
   { path: 'usage', label: 'Usage', icon: 'chart', page: usage, perm: 'access.edit', group: 'Admin', hidden: true },   // not in the menu any more
-  { path: 'profile', label: 'My account', icon: 'user', page: profile, hidden: true },
+  { path: 'profile', label: 'My account', icon: 'user', page: profile, hidden: true, zone: 'any' },
 ];
+const zoneOf = (r) => r.zone || 'sys';
+
+// the page that opens when no page is chosen
+function startPath() {
+  const l = layout();
+  if (l === 'phone-emp') return 'my-leave';
+  if (l === 'phone-inbox') return 'inbox';
+  return switchable() && deskMode() === 'emp' ? 'my-leave' : 'home';
+}
 
 const state = { me: null, settings: null, types: [], departments: [], holidays: [], today: '' };
 const root = $('#root');
@@ -112,7 +142,8 @@ async function refreshBadge() {
   try {
     const d = await get('/dashboard');
     els.forEach((el) => {
-      const n = el.dataset.badge === 'work' ? d.workPendingCount : d.pendingCount;     // leave / Work From Home - Onsite
+      // leave / Work From Home / both (phone "Requests")
+      const n = el.dataset.badge === 'work' ? d.workPendingCount : el.dataset.badge === 'all' ? d.pendingCount + d.workPendingCount : d.pendingCount;
       el.textContent = n || ''; el.hidden = !n;
     });
   } catch { /* ignore */ }
@@ -142,16 +173,31 @@ function wireHeader() {
 function renderShell() {
   const b = state.brand || {};
   const me = state.me;
-  const items = ROUTES.filter((r) => !r.hidden && allowed(r));
+  const l = layout();
+  // desktop with the switch: the sidebar of the chosen mode only
+  const items = ROUTES.filter((r) => !r.hidden && allowed(r)
+    && (!switchable() || (deskMode() === 'emp' ? zoneOf(r) === 'emp' : zoneOf(r) !== 'emp')));
+  const mode = deskMode();
+  const modeSwitch = switchable() ? `<div class="mode-switch" role="group" aria-label="Employee or System view">
+      <button type="button" data-mode="emp" class="${mode === 'emp' ? 'on' : ''}" aria-pressed="${mode === 'emp'}">Employee</button>
+      <button type="button" data-mode="sys" class="${mode === 'sys' ? 'on' : ''}" aria-pressed="${mode === 'sys'}">System</button></div>` : '';
   let group = '';
   const nav = items.map((r) => {
     const head = r.group && r.group !== group ? `<div class="nav-group">${esc(r.group)}</div>` : '';
     group = r.group || group;
     return `${head}<a href="#/${r.path}" data-path="${r.path}">${icon(r.icon)}<span>${esc(r.label)}</span>${r.badge ? `<em class="nav-badge js-badge" data-badge="${r.badge}" hidden></em>` : ''}</a>`;
   }).join('');
-  const tabs = PHONE_TABS.map(([p, label]) => [items.find((r) => r.path === p), label]).filter(([r]) => r).slice(0, me.employee ? 5 : 4)
-    .map(([r, label]) => `<a href="#/${r.path}" data-path="${r.path}">${icon(r.icon)}<span>${esc(label)}</span>${r.badge ? `<em class="js-badge" data-badge="${r.badge}" hidden></em>` : ''}</a>`).join('');
-  const canApply = items.some((r) => r.path === 'apply');
+  const tabLink = ([r, label]) => `<a href="#/${r.path}" data-path="${r.path}">${icon(r.icon)}<span>${esc(label)}</span>${r.badge ? `<em class="js-badge" data-badge="${r.badge}" hidden></em>` : ''}</a>`;
+  const pick = (list) => list.map(([p, label]) => [ROUTES.find((r) => r.path === p && allowed(r)), label]).filter(([r]) => r);
+  let mTabs = '';
+  if (l === 'phone-emp') {                // exactly these tabs, no "More"
+    const t = pick(PHONE_EMP_TABS);
+    mTabs = `<nav class="m-tabs" style="--n:${t.length}">${t.map(tabLink).join('')}</nav>`;
+  } else if (l === 'phone') {
+    const t = pick(PHONE_TABS).slice(0, 4);
+    mTabs = `<nav class="m-tabs" style="--n:${t.length + 1}">${t.map(tabLink).join('')}
+      <button type="button" id="m-more">${icon('more')}<span>More</span></button></nav>`;
+  }                                      // phone-inbox: just the Requests screen, no tabs
   const initials = me.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
   root.innerHTML = `
     <div class="shell">
@@ -164,6 +210,7 @@ function renderShell() {
         <header class="topbar">
           <button class="icon-btn menu-btn" id="menu-btn" aria-label="Menu">${icon('menu')}</button>
           <div class="spacer"></div>
+          ${modeSwitch}
           ${bellHtml()}
           <div class="user-menu">
             <button class="user-btn" id="user-btn" aria-haspopup="true"><span class="avatar">${esc(initials)}</span>
@@ -177,16 +224,24 @@ function renderShell() {
         </header>
         <main id="view" class="view" tabindex="-1"></main>
       </div>
-      ${canApply ? `<a class="m-fab" id="m-fab" href="#/apply">${icon('plus')}<span>Request Leave</span></a>` : ''}
-      <nav class="m-tabs" style="--n:${(tabs.match(/<a /g) || []).length + 1}">${tabs}
-        <button type="button" id="m-more">${icon('more')}<span>More</span></button></nav>
+      ${mTabs}
       <div class="scrim" id="scrim"></div>
     </div>`;
+  document.body.classList.toggle('no-m-tabs', !mTabs);
   wireHeader();
   const toggle = (open) => document.body.classList.toggle('nav-open', open);
   $('#menu-btn').addEventListener('click', () => toggle(!document.body.classList.contains('nav-open')));
-  $('#m-more').addEventListener('click', () => toggle(!document.body.classList.contains('nav-open')));
+  const more = $('#m-more');
+  if (more) more.addEventListener('click', () => toggle(!document.body.classList.contains('nav-open')));
   $('#scrim').addEventListener('click', () => toggle(false));
+  // Employee | System: the sidebar changes; Employee opens My Leave, System opens Home
+  root.querySelectorAll('.mode-switch [data-mode]').forEach((b) => b.addEventListener('click', () => {
+    if (b.dataset.mode === deskMode()) return;
+    setDeskMode(b.dataset.mode);
+    const target = `#/${b.dataset.mode === 'emp' ? 'my-leave' : 'home'}`;
+    renderShell();
+    if (location.hash === target) route(); else location.hash = target;
+  }));
   refreshBadge();
 }
 
@@ -235,17 +290,25 @@ const TRASH_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" 
 
 let routeToken = 0;
 async function route() {
+  if (!$('#view')) return;
+  const [path, queryString] = (location.hash.replace(/^#\/?/, '') || startPath()).split('?');
+  let r = ROUTES.find((x) => x.path === path) || ROUTES.find((x) => x.path === startPath());
+  const l = layout();
+  // phone: approvals happen on the Requests (Waiting / Done) screen
+  if ((l === 'phone-inbox' && r.path !== 'profile') || (l === 'phone-emp' && (r.path === 'approvals' || r.path === 'work' || r.path === 'home'))) {
+    r = ROUTES.find((x) => x.path === (l === 'phone-emp' && r.path === 'home' ? 'my-leave' : 'inbox'));
+  }
+  // desktop with the switch: a page of the other mode (a link, a notification) switches the mode
+  if (switchable() && zoneOf(r) !== 'any' && (zoneOf(r) === 'emp') !== (deskMode() === 'emp')) {
+    setDeskMode(zoneOf(r) === 'emp' ? 'emp' : 'sys');
+    renderShell();
+  }
   const view = $('#view');
-  if (!view) return;
-  const [path, queryString] = (location.hash.replace(/^#\/?/, '') || 'home').split('?');
-  const r = ROUTES.find((x) => x.path === path) || ROUTES.find((x) => x.path === 'home');
   document.body.classList.remove('nav-open');
   $$('.nav a, .m-tabs a').forEach((a) => a.classList.toggle('active', a.dataset.path === r.path));
   const tabbed = $$('.m-tabs a').some((a) => a.dataset.path === r.path);
   const more = $('#m-more');
   if (more) more.classList.toggle('active', !tabbed);
-  const fab = $('#m-fab');
-  if (fab) fab.hidden = r.path !== 'home';          // My Leave / Balance / Profile have their own "New Request"
   if (!allowed(r)) { view.innerHTML = '<div class="empty">You do not have access to this page.</div>'; return; }
   const token = ++routeToken;
   view.innerHTML = loadingHtml();
@@ -272,9 +335,10 @@ async function start() {
   if (state.me.mustChange) { renderForceChange(root, state.brand, () => start()); return; }
   // signed in: a 401 from now on means the session ended
   setUnauthorizedHandler(() => { toast('Your session ended. Please sign in again.', 'error'); setTimeout(() => location.reload(), 1200); });
-  // the same full system on every screen (on a phone: bottom tabs + "More" menu)
   registerWorker();
   resyncPush('/api/push/subscribe');
+  // turning a phone into a big screen (or back) changes the layout (see layout())
+  PHONE.addEventListener('change', () => { renderShell(); route(); });
   renderShell();
   loadBell();
   setInterval(() => { loadBell(); refreshBadge(); }, 60000);

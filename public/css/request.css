@@ -665,3 +665,23 @@
   background: linear-gradient(90deg, #16204f 0%, var(--brand) 60%, var(--accent) 100%); opacity: .85; }
 .app-mode .tabbar button.on { color: var(--brand); }
 .app-mode .tabbar button.on svg { stroke: var(--brand); }
+
+/* ---------- Wide screens (a computer): the same screens, laid out for the space
+   (the employee app on a computer, and My Leave / Balance / Profile inside the system) */
+@media (min-width: 900px) {
+  .leave-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px; align-items: start; }
+  .seg { max-width: 460px; }
+  .bal-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+  .date-rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+  /* request details / New request: a dialog in the middle instead of a sheet from the bottom */
+  .sheet-back { align-items: center; padding: 24px; }
+  .sheet { max-width: 560px; border-radius: 22px; padding: 22px 24px 24px; opacity: 0; transform: translateY(18px) scale(.98); transition: transform .22s ease, opacity .22s ease; }
+  .sheet-back.open .sheet { opacity: 1; transform: none; }
+  .sheet-grip { display: none; }
+  /* Profile: photo + details | notifications + password */
+  .profile-grid { display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); gap: 32px; align-items: start; }
+  .profile-grid .profile-head { margin-top: 0; }
+  .profile-grid .pg-right > :first-child .app-h2, .profile-grid .pg-right > .app-h2:first-child { margin-top: 0; }
+  .apply, .rq-done { max-width: 900px; }
+}
+.profile-grid .btn-wide.danger { margin-top: 22px; }
